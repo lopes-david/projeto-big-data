@@ -1,0 +1,17 @@
+{
+  "Rules": [
+    {
+      "ID": "gold-lifecycle-policy",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Expiration": {
+        "Days": 365
+      },
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 30
+      }
+    }
+  ]
+}
