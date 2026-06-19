@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "vidaplus-terraform-state"
+    bucket = "brasilmart-terraform-state"
     key    = "data-platform/terraform.tfstate"
     region = "us-east-1"
   }
@@ -20,7 +20,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "VidaPlus-DataPlatform"
+      Project     = "BrasilMart-DataPlatform"
       Environment = var.environment
       ManagedBy   = "Terraform"
     }
@@ -42,5 +42,5 @@ variable "environment" {
 variable "project_name" {
   description = "Project name prefix for resource naming"
   type        = string
-  default     = "vidaplus"
+  default     = "brasilmart"
 }

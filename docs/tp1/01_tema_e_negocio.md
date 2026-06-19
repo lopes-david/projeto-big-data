@@ -1,28 +1,44 @@
 # TP1 - Parte 1.1: Tema do Projeto e Problema de Negócio
 
-## Tema: Plataforma de Dados Unificada para Rede Hospitalar — Visão 360° do Paciente
+## Tema: Plataforma de Dados Unificada para Marketplace de E-commerce — Visão 360° do Cliente
 
 ---
 
 ## Resumo do Negócio
 
-A **VidaPlus Saúde** é uma rede hospitalar de grande porte que opera em 8 estados brasileiros, composta por 20 hospitais, 60 clínicas ambulatoriais e mais de 2 milhões de pacientes ativos. A rede emprega aproximadamente 15.000 profissionais de saúde e realiza cerca de 8 milhões de atendimentos por ano.
+A **BrasilMart** é um marketplace de e-commerce de grande porte que conecta vendedores independentes a milhões de consumidores em todo o Brasil, operando em todos os 26 estados e no Distrito Federal. Fundada em 2014, a empresa cresceu rapidamente via aquisições de plataformas regionais e hoje hospeda mais de **3.000 vendedores ativos**, processa em média **100.000 pedidos por mês** e conta com uma base de **99.000+ clientes únicos**.
 
-Ao longo de duas décadas de expansão — incluindo aquisições de hospitais regionais — a VidaPlus acumulou uma infraestrutura de TI fragmentada: cada unidade utiliza sistemas diferentes para prontuário eletrônico (HIS), laboratório (LIS), radiologia (RIS) e agendamento. Os dados dos pacientes estão espalhados em pelo menos 12 sistemas distintos, sem integração entre eles.
+A plataforma opera como intermediadora: os vendedores publicam seus produtos, os consumidores compram e a BrasilMart gerencia a logística, os pagamentos e o relacionamento pós-venda — incluindo avaliações e suporte.
+
+**Base de dados real utilizada:** Dataset público do marketplace Olist, disponível no Kaggle, contendo dados reais de 2016 a 2018 com as seguintes dimensões:
+
+| Dataset | Registros | Descrição |
+|---------|-----------|-----------|
+| `olist_orders_dataset.csv` | 99.441 | Pedidos com status e timestamps do ciclo de vida |
+| `olist_customers_dataset.csv` | 99.441 | Cadastro de clientes (único por pedido) |
+| `olist_order_items_dataset.csv` | 112.650 | Itens de cada pedido (produto, vendedor, preço) |
+| `olist_order_payments_dataset.csv` | 103.886 | Pagamentos (tipo, parcelas, valor) |
+| `olist_order_reviews_dataset.csv` | 104.719 | Avaliações dos clientes |
+| `olist_products_dataset.csv` | 32.951 | Catálogo de produtos |
+| `olist_sellers_dataset.csv` | 3.095 | Cadastro de vendedores |
+| `olist_geolocation_dataset.csv` | 1.000.163 | Dados geográficos (CEP → lat/lng) |
+| `product_category_name_translation.csv` | 70 | Traduções de categorias (PT → EN) |
+| **Total** | **~1,56 milhão** | |
 
 ---
 
 ## Problema de Negócio
 
-A ausência de uma visão unificada do paciente gera impactos críticos:
+Apesar do crescimento, a BrasilMart enfrenta problemas críticos causados pela ausência de uma plataforma de dados integrada:
 
-| Problema | Impacto Estimado |
-|----------|-----------------|
-| **Exames duplicados** — sem acesso ao histórico completo, médicos solicitam exames que o paciente já realizou em outra unidade | R$ 50 milhões/ano em desperdício |
-| **Tempo de consolidação** — reunir informações de um paciente atendido em múltiplas unidades leva em média 72 horas | Atraso em diagnósticos e decisões clínicas |
-| **Readmissões evitáveis** — sem análise preditiva, pacientes de alto risco recebem alta sem acompanhamento adequado | Taxa de readmissão 18% acima da média do setor |
-| **Conformidade LGPD** — dados sensíveis de saúde (Art. 11) armazenados sem governança centralizada | Risco regulatório e multas de até 2% do faturamento |
-| **Ineficiência operacional** — alocação de leitos, escalas médicas e gestão de estoque de medicamentos baseada em intuição, não em dados | Ocupação de leitos 15% abaixo do ótimo |
+| Problema | Impacto |
+|----------|---------|
+| **Sem visão 360° do cliente** — histórico de compras, comportamento, valor do cliente (LTV) não consolidados | Campanhas de marketing genéricas, taxa de recompra 23% abaixo do benchmark do setor |
+| **Análise de performance de vendedores reativa** — gestores sabem de problemas de qualidade só quando acumulam reclamações | 12% dos vendedores responsáveis por 60% das avaliações negativas (score ≤ 2) |
+| **Logística sem analytics preditivo** — atrasos nas entregas só detectados após ocorrência | 8% dos pedidos entregues com atraso > 5 dias; custo de reembolso R$ 2,3M/ano |
+| **Churn de clientes não monitorado** — sem segmentação por comportamento, impossível identificar clientes em risco | 70% dos clientes fazem apenas 1 compra; lifetime value médio de R$ 150 |
+| **Fraudes em pagamentos não detectadas em tempo real** — análise manual pós-fato | Perda estimada de R$ 800K/ano com chargebacks |
+| **Catálogo de produtos com qualidade variável** — sem análise de dados de reviews e retorno para curadoria | 18% dos produtos ativos sem venda nos últimos 90 dias |
 
 ---
 
@@ -30,34 +46,39 @@ A ausência de uma visão unificada do paciente gera impactos críticos:
 
 | Stakeholder | Papel | Interesse no Projeto |
 |-------------|-------|---------------------|
-| **Diretoria Executiva (CEO/CFO)** | Decisores estratégicos | ROI, redução de custos operacionais, compliance |
-| **Diretor Médico (CMO)** | Liderança clínica | Qualidade do atendimento, redução de erros médicos, protocolos baseados em dados |
-| **Diretor de TI (CIO)** | Liderança tecnológica | Arquitetura escalável, integração de sistemas, segurança |
-| **Coordenadores de Enfermagem** | Gestão de cuidados | Acesso rápido ao histórico do paciente, alertas clínicos |
-| **Equipe de BI / Analistas de Dados** | Consumidores analíticos | Dashboards, relatórios, modelos preditivos |
-| **Equipe de Compliance / DPO** | Governança e privacidade | LGPD, consentimento, anonimização, auditoria |
-| **Gestores de Operações** | Eficiência hospitalar | Ocupação de leitos, gestão de filas, estoque de insumos |
-| **Operadoras de Planos de Saúde** | Parceiros financeiros | Padronização de dados para faturamento (TISS/TUSS), redução de glosas |
+| **CEO / Diretoria** | Decisores estratégicos | Crescimento de GMV, redução de churn, market share |
+| **Diretor de Marketing** | Growth e retenção | Segmentação de clientes, LTV, campanhas personalizadas |
+| **Diretor de Operações** | Logística e fulfillment | Predição de atrasos, otimização de rotas, SLA |
+| **Diretor de Marketplace** | Gestão de vendedores | Performance de sellers, qualidade de catálogo |
+| **Equipe de BI / Analistas** | Consumidores analíticos | Dashboards, relatórios, análises ad-hoc |
+| **Equipe de Dados (Eng./Cientistas)** | Produtores e consumidores | Pipelines, modelos de ML, qualidade de dados |
+| **Equipe de Fraude** | Prevenção de perdas | Detecção de anomalias em pagamentos |
+| **Vendedores (Sellers)** | Parceiros comerciais | Relatórios de performance, visibilidade de estoque |
 
 ---
 
 ## Usuários Finais
 
-1. **Médicos e enfermeiros** — acessarão dashboards clínicos com visão consolidada do paciente durante o atendimento.
-2. **Analistas de dados** — utilizarão tabelas analíticas (camada Gold) para criar relatórios de performance hospitalar, epidemiologia e predição de readmissões.
-3. **Gestores operacionais** — consumirão indicadores de ocupação, tempo de espera e eficiência por unidade.
-4. **Equipe de compliance** — acessarão relatórios de governança, linhagem de dados e logs de acesso.
+1. **Analistas de Marketing** — consumirão a segmentação RFM (Recência, Frequência, Monetário) de clientes na camada Gold para campanhas personalizadas.
+2. **Gestores de Operações** — acompanharão KPIs de entrega (on-time rate, tempo médio) por região e vendedor.
+3. **Equipe de Curadoria de Catálogo** — usarão dashboards de produtos com baixa performance, alta taxa de devolução ou reviews negativos.
+4. **Cientistas de Dados** — consumirão as tabelas Silver para treinar modelos de predição de churn, recomendação e detecção de fraude.
+5. **Vendedores (via portal self-service)** — acessarão relatórios próprios de performance: vendas, avaliações e taxa de entrega no prazo.
 
 ---
 
 ## Justificativa da Escolha do Tema
 
-A saúde é um dos setores que mais gera dados no mundo — desde registros eletrônicos de pacientes, resultados de exames laboratoriais, imagens médicas, até dados de dispositivos IoT de monitoramento. Esta complexidade e volume justificam plenamente o uso de tecnologias de Big Data:
+O e-commerce é um dos setores que mais justifica tecnologias de Big Data pelos 5 Vs:
 
-1. **Volume**: milhões de registros de consultas, exames e prescrições gerados diariamente em uma rede de 20 hospitais.
-2. **Variedade**: dados estruturados (tabelas de agendamento), semi-estruturados (JSON de prontuários eletrônicos, HL7/FHIR) e não-estruturados (laudos em texto livre, PDFs de exames).
-3. **Velocidade**: dados de monitores de sinais vitais em UTI que chegam em tempo real (streaming), exigindo processamento near-real-time para alertas clínicos.
-4. **Veracidade**: dados de múltiplas fontes heterogêneas que precisam ser reconciliados e validados para garantir confiabilidade clínica.
-5. **Valor**: insights como predição de readmissão, detecção precoce de surtos epidemiológicos e otimização de recursos hospitalares têm impacto direto na vida dos pacientes e na sustentabilidade financeira da rede.
+1. **Volume**: 1,56 milhão de registros em apenas 2 anos de operação de uma plataforma de médio porte. Escalonando para um marketplace nacional, seriam bilhões de eventos por ano.
 
-Adicionalmente, o setor de saúde possui exigências rigorosas de **governança e privacidade** (LGPD, HIPAA), o que torna a implementação de um Data Lakehouse com controles de acesso granulares um requisito técnico real, não apenas acadêmico.
+2. **Variedade**: dados estruturados (pedidos, pagamentos, clientes), semi-estruturados (reviews com texto livre e metadata) e geoespaciais (1 milhão de registros de geolocalização de CEPs).
+
+3. **Velocidade**: a cada novo pedido realizado, múltiplos eventos são gerados em cascata — aprovação de pagamento, notificação ao vendedor, geração de etiqueta logística, atualização de estoque — exigindo processamento near-real-time.
+
+4. **Veracidade**: dados de múltiplas fontes (sistema de pedidos, gateway de pagamento, transportadoras, sistema de reviews) com necessidade de reconciliação e deduplicação.
+
+5. **Valor**: insights sobre comportamento de compra, predição de churn, otimização de rotas e detecção de fraude têm impacto financeiro direto e mensurável.
+
+Adicionalmente, o dataset da Olist é **real e público**, o que permite demonstrar a plataforma com dados que refletem padrões reais de e-commerce brasileiro, incluindo sazonalidade, distribuição geográfica concentrada no Sudeste e comportamento de pagamento (preferência por cartão de crédito parcelado).

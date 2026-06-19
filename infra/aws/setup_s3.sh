@@ -1,12 +1,12 @@
 #!/bin/bash
 # ============================================================
-# Setup S3 Buckets — VidaPlus Data Lakehouse
+# Setup S3 Buckets — BrasilMart Data Lakehouse
 # Alternativa ao Terraform para criação rápida via AWS CLI
 # ============================================================
 
 set -euo pipefail
 
-PROJECT="vidaplus"
+PROJECT="brasilmart"
 ENV="${1:-dev}"
 REGION="us-east-1"
 

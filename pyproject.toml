@@ -3,14 +3,14 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vidaplus-data-platform"
+name = "brasilmart-data-platform"
 version = "0.1.0"
-description = "Plataforma de Dados Unificada VidaPlus Saúde — Visão 360° do Paciente"
+description = "Plataforma de Dados Unificada BrasilMart — Visão 360° do Cliente (Olist Dataset)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "David Lopes", email = "pessoal.david.lopes@gmail.com"},
+    {name = "David Lopes", email = "david@noharm.ai"},
 ]
 
 dependencies = [
@@ -36,6 +36,7 @@ databricks = [
 ]
 data-generation = [
     "faker>=25.0.0",
+    "pandas>=2.2.0",
 ]
 
 [tool.setuptools.packages.find]

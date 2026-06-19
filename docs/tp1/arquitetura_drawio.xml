@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- TÍTULO -->
+    <mxCell id="title" value="BrasilMart — Arquitetura Data Lakehouse (AWS + Databricks)&#xa;Visão 360° do Cliente | Dataset: Olist Brazilian E-Commerce" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="20" width="1240" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: FONTES -->
+    <mxCell id="c_fontes" value="① Fontes de Dados (Olist Dataset)" style="swimlane;startSize=30;fillColor=#fff8e1;strokeColor=#ff9800;fontStyle=1;fontSize=11;fontColor=#e65100;" vertex="1" parent="1">
+      <mxGeometry x="20" y="100" width="240" height="320" as="geometry" />
+    </mxCell>
+    <mxCell id="orders_csv" value="olist_orders_dataset.csv&#xa;99.441 pedidos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;" vertex="1" parent="c_fontes">
+      <mxGeometry x="20" y="50" width="200" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="customers_csv" value="olist_customers_dataset.csv&#xa;99.441 clientes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;" vertex="1" parent="c_fontes">
+      <mxGeometry x="20" y="115" width="200" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="products_csv" value="olist_products_dataset.csv&#xa;32.951 produtos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;" vertex="1" parent="c_fontes">
+      <mxGeometry x="20" y="180" width="200" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="geo_csv" value="olist_geolocation_dataset.csv&#xa;1.000.163 registros" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff9800;" vertex="1" parent="c_fontes">
+      <mxGeometry x="20" y="245" width="200" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: INGESTÃO -->
+    <mxCell id="c_ingest" value="② Camada de Ingestão" style="swimlane;startSize=30;fillColor=#e8f5e9;strokeColor=#4caf50;fontStyle=1;fontSize=11;fontColor=#2e7d32;" vertex="1" parent="1">
+      <mxGeometry x="300" y="100" width="260" height="320" as="geometry" />
+    </mxCell>
+    <mxCell id="glue" value="AWS Glue Studio&#xa;(Batch ETL Job)&#xa;CSV → Parquet&#xa;Job Bookmark (incremental)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#4caf50;fontStyle=1;" vertex="1" parent="c_ingest">
+      <mxGeometry x="20" y="45" width="220" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="dbr_ingest" value="Databricks PySpark&#xa;JSON Aninhado (4 níveis)&#xa;+ Streaming Simulado&#xa;(Auto Loader S3)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1565c0;fontStyle=1;" vertex="1" parent="c_ingest">
+      <mxGeometry x="20" y="165" width="220" height="110" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: S3 LAKEHOUSE -->
+    <mxCell id="c_s3" value="③ Amazon S3 — Data Lakehouse (4 Camadas)" style="swimlane;startSize=30;fillColor=#f3e5f5;strokeColor=#7b1fa2;fontStyle=1;fontSize=11;fontColor=#4a148c;" vertex="1" parent="1">
+      <mxGeometry x="610" y="80" width="320" height="470" as="geometry" />
+    </mxCell>
+    <mxCell id="raw" value="RAW&#xa;CSVs originais da Olist (imutável)&#xa;7 anos | Standard → Glacier" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e5f5;strokeColor=#9c27b0;fontStyle=1;fontSize=11;" vertex="1" parent="c_s3">
+      <mxGeometry x="20" y="45" width="280" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="bronze" value="BRONZE&#xa;Parquet + Delta Lake&#xa;Sem transformação | 3 anos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8eaf6;strokeColor=#3949ab;fontStyle=1;fontSize=11;" vertex="1" parent="c_s3">
+      <mxGeometry x="20" y="145" width="280" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="silver" value="SILVER&#xa;Dados limpos e padronizados&#xa;Delta Lake | 2 anos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f7fa;strokeColor=#00838f;fontStyle=1;fontSize=11;" vertex="1" parent="c_s3">
+      <mxGeometry x="20" y="245" width="280" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="gold" value="GOLD — Tabelas Analíticas&#xa;dim_clientes_rfm | dim_sellers_score&#xa;fato_vendas_diarias | 1 ano" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9fbe7;strokeColor=#558b2f;fontStyle=1;fontSize=11;" vertex="1" parent="c_s3">
+      <mxGeometry x="20" y="345" width="280" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: PROCESSAMENTO -->
+    <mxCell id="c_proc" value="④ Processamento (Apache Spark)" style="swimlane;startSize=30;fillColor=#e3f2fd;strokeColor=#1565c0;fontStyle=1;fontSize=11;fontColor=#0d47a1;" vertex="1" parent="1">
+      <mxGeometry x="300" y="460" width="260" height="220" as="geometry" />
+    </mxCell>
+    <mxCell id="spark" value="Apache Spark&#xa;PySpark Notebooks&#xa;AQE + Broadcast Join" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1565c0;fontStyle=1;" vertex="1" parent="c_proc">
+      <mxGeometry x="20" y="45" width="220" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="dbr_ws" value="Databricks Workspace&#xa;All-Purpose Cluster (dev)&#xa;Jobs Cluster (prod / auto-scaling)&#xa;Spot Instances" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bbdefb;strokeColor=#1565c0;" vertex="1" parent="c_proc">
+      <mxGeometry x="20" y="135" width="220" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: CONSUMO -->
+    <mxCell id="c_consumo" value="⑤ Consumo Analítico" style="swimlane;startSize=30;fillColor=#fff8e1;strokeColor=#f57f17;fontStyle=1;fontSize=11;fontColor=#e65100;" vertex="1" parent="1">
+      <mxGeometry x="990" y="100" width="310" height="320" as="geometry" />
+    </mxCell>
+    <mxCell id="redshift" value="Amazon Redshift Serverless&#xa;Queries SQL de alta performance&#xa;Pay-per-query" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#e65100;fontStyle=1;" vertex="1" parent="c_consumo">
+      <mxGeometry x="20" y="45" width="270" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="dbr_sql" value="Databricks SQL Warehouse&#xa;Consultas ad-hoc&#xa;Análise exploratória" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1565c0;fontStyle=1;" vertex="1" parent="c_consumo">
+      <mxGeometry x="20" y="145" width="270" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="bi" value="Power BI / Tableau&#xa;Dashboards operacionais (RFM, GMV, Sellers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffde7;strokeColor=#f9a825;" vertex="1" parent="c_consumo">
+      <mxGeometry x="20" y="245" width="270" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- CLUSTER: GOVERNANÇA -->
+    <mxCell id="c_gov" value="⑥ Governança e Segurança (Transversal — LGPD)" style="swimlane;startSize=30;fillColor=#fce4ec;strokeColor=#c62828;fontStyle=1;fontSize=11;fontColor=#b71c1c;" vertex="1" parent="1">
+      <mxGeometry x="20" y="720" width="1280" height="140" as="geometry" />
+    </mxCell>
+    <mxCell id="lf" value="AWS Lake Formation&#xa;Row/Column-level security&#xa;Permissões por perfil (LGPD)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c62828;" vertex="1" parent="c_gov">
+      <mxGeometry x="20" y="45" width="270" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="catalog" value="AWS Glue Data Catalog&#xa;Metadados e schemas&#xa;Linhagem de dados" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c62828;" vertex="1" parent="c_gov">
+      <mxGeometry x="320" y="45" width="270" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="iam_kms" value="AWS IAM + KMS&#xa;Criptografia SSE-KMS&#xa;Roles por equipe" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c62828;" vertex="1" parent="c_gov">
+      <mxGeometry x="620" y="45" width="270" height="75" as="geometry" />
+    </mxCell>
+    <mxCell id="airflow" value="Amazon MWAA (Airflow) — TPs futuros&#xa;Orquestração de pipelines&#xa;DAGs agendadas | Alertas via SNS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c62828;" vertex="1" parent="c_gov">
+      <mxGeometry x="920" y="45" width="330" height="75" as="geometry" />
+    </mxCell>
+
+    <!-- SETAS -->
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4caf50;strokeWidth=2;" edge="1" source="orders_csv" target="glue" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7b1fa2;strokeWidth=2;" edge="1" source="orders_csv" target="raw" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4caf50;strokeWidth=2;" edge="1" source="glue" target="bronze" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565c0;strokeWidth=2;" edge="1" source="dbr_ingest" target="bronze" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565c0;strokeWidth=2;" edge="1" source="bronze" target="spark" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#00838f;strokeWidth=2;" edge="1" source="spark" target="silver" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#558b2f;strokeWidth=2;" edge="1" source="silver" target="gold" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#e65100;strokeWidth=2;" edge="1" source="gold" target="redshift" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565c0;strokeWidth=2;" edge="1" source="gold" target="dbr_sql" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#f9a825;strokeWidth=2;" edge="1" source="redshift" target="bi" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+  </root>
+</mxGraphModel>

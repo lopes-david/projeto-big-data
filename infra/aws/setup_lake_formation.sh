@@ -1,12 +1,12 @@
 #!/bin/bash
 # ============================================================
 # Setup AWS Lake Formation + Glue Data Catalog
-# VidaPlus Data Platform — Governança Inicial
+# BrasilMart Data Platform — Governança Inicial
 # ============================================================
 
 set -euo pipefail
 
-PROJECT="vidaplus"
+PROJECT="brasilmart"
 ENV="${1:-dev}"
 REGION="us-east-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -20,10 +20,10 @@ echo ""
 echo "1. Criando databases no Glue Data Catalog..."
 
 declare -A DB_DESCRIPTIONS=(
-    ["raw"]="Dados brutos originais (JSON, CSV) - VidaPlus Saúde"
+    ["raw"]="Dados brutos originais Olist (orders, customers, products...) - BrasilMart"
     ["bronze"]="Dados convertidos para Parquet/Delta sem transformação"
     ["silver"]="Dados limpos, padronizados e deduplicados"
-    ["gold"]="Tabelas analíticas, KPIs e visão 360° do paciente"
+    ["gold"]="Tabelas analíticas, KPIs e visão 360° do cliente"
 )
 
 for LAYER in raw bronze silver gold; do
@@ -37,7 +37,7 @@ for LAYER in raw bronze silver gold; do
             \"Description\": \"${DB_DESCRIPTIONS[$LAYER]}\",
             \"LocationUri\": \"s3://${PROJECT}-${LAYER}-${ENV}/\",
             \"Parameters\": {
-                \"project\": \"vidaplus\",
+                \"project\": \"brasilmart\",
                 \"environment\": \"${ENV}\",
                 \"layer\": \"${LAYER}\"
             }
@@ -114,9 +114,10 @@ aws glue create-crawler \
     --database-name "${PROJECT}_raw" \
     --targets "{
         \"S3Targets\": [
-            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/consultas/\"},
-            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/pacientes/\"},
-            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/exames_laboratorio/\"}
+            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/orders/\"},
+            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/customers/\"},
+            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/products/\"},
+            {\"Path\": \"s3://${PROJECT}-raw-${ENV}/orders_json/\"}
         ]
     }" \
     --schema-change-policy "{

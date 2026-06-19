@@ -1,191 +1,210 @@
 # TP1 - Parte 1.4: Defesa Técnica — Data Lakehouse e Apache Spark
 
-## Por que Data Lakehouse?
+## Por que Data Lakehouse para o Marketplace BrasilMart?
 
 ### O Problema das Abordagens Tradicionais
 
-A VidaPlus Saúde enfrenta um desafio que nenhuma arquitetura tradicional resolve sozinha:
+A BrasilMart opera com 9 fontes de dados heterogêneas que nenhuma arquitetura tradicional resolve sozinha:
 
-**Data Lake puro (S3 + arquivos):**
-- Aceita qualquer formato de dado (JSON do laboratório, CSV do prontuário, streaming de IoT) — ✅
-- Mas não garante qualidade, consistência nem controle de acesso granular — ❌
-- Consultas SQL diretas são lentas e não confiáveis sem esquema definido — ❌
-- Fenômeno conhecido como "data swamp": o lago de dados vira pântano sem governança — ❌
+**Data Lake puro (S3 + CSVs):**
+- Aceita os 9 arquivos CSV da Olist sem transformação — ✅
+- Mas não garante qualidade nem consistência entre eles — ❌
+- `customer_id` em `orders.csv` não garante existência em `customers.csv` (sem integridade referencial) — ❌
+- Queries SQL diretas sobre CSV são lentas e caras — ❌
+- Sem controle de acesso granular: analista de marketing veria dados de pagamento indevidamente — ❌
 
 **Data Warehouse puro (Redshift):**
-- Consultas SQL rápidas e confiáveis — ✅
-- Controle de acesso e auditoria robustos — ✅
-- Mas exige que os dados sejam estruturados antes de serem carregados (ETL rígido) — ❌
-- Custo proibitivo para armazenar terabytes de dados brutos (JSON, logs, imagens) — ❌
-- Não suporta workloads de machine learning nativamente — ❌
+- Queries SQL rápidas — ✅
+- Mas requer ETL rígido e schema fixo antes de qualquer carga — ❌
+- Armazenar 1 milhão de registros de geolocalização no Redshift custa 50x mais que no S3 — ❌
+- Quando a BrasilMart adquirir outro marketplace, integrar schemas diferentes levará meses — ❌
+- Sem suporte nativo a ML e processamento de texto de reviews — ❌
 
 ### A Solução: Data Lakehouse
 
-O Data Lakehouse combina a **flexibilidade do Data Lake** com a **confiabilidade do Data Warehouse** através de uma camada de metadados e transações sobre o armazenamento em nuvem (S3):
+O Data Lakehouse resolve os dois problemas ao mesmo tempo:
 
 ```
-┌─────────────────────────────────────────────┐
-│           CONSUMO (BI, SQL, ML)             │
-├─────────────────────────────────────────────┤
-│        DELTA LAKE (Transações ACID)         │  ← Confiabilidade do Warehouse
-├─────────────────────────────────────────────┤
-│     GLUE DATA CATALOG (Schema/Metadados)    │  ← Governança centralizada
-├─────────────────────────────────────────────┤
-│           AMAZON S3 (Armazenamento)         │  ← Flexibilidade do Data Lake
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  CONSUMO: SQL (Redshift/Databricks), Power BI, ML    │
+├──────────────────────────────────────────────────────┤
+│  DELTA LAKE: Transações ACID + Schema evolution      │  ← Confiabilidade do Warehouse
+├──────────────────────────────────────────────────────┤
+│  GLUE CATALOG: Metadados, schemas, linhagem          │  ← Governança centralizada
+├──────────────────────────────────────────────────────┤
+│  AMAZON S3: Armazenamento ilimitado e barato         │  ← Flexibilidade do Data Lake
+└──────────────────────────────────────────────────────┘
 ```
 
-**Benefícios concretos para a VidaPlus:**
+**Benefícios concretos para o e-commerce:**
 
-| Característica | Benefício para Saúde |
-|---------------|---------------------|
-| **Transações ACID (Delta Lake)** | Garante que uma atualização de prontuário nunca corrompa dados existentes — crítico quando vidas dependem da integridade dos dados |
-| **Schema Evolution** | Quando um novo hospital é adquirido e seus dados têm campos diferentes, o schema se adapta sem quebrar pipelines existentes |
-| **Time Travel** | Permite consultar o estado dos dados em qualquer ponto no passado — essencial para auditoria LGPD ("quais dados tínhamos do paciente X em 01/03/2025?") |
-| **Acesso unificado** | Mesmos dados acessíveis via Spark (para ML e processamento pesado), SQL (para analistas) e BI tools (para gestores) |
-| **Custo otimizado** | Armazenamento em S3 (centavos por GB) + processamento sob demanda (paga só quando usa) |
+| Característica | Benefício para a BrasilMart |
+|---------------|------------------------------|
+| **Transações ACID** | Um pipeline que atualiza pedidos não corrompe dados enquanto analistas estão consultando os mesmos |
+| **Schema Evolution** | Quando o sistema de pagamentos adicionar um novo tipo (PIX, por exemplo), o schema se adapta sem quebrar pipelines existentes |
+| **Time Travel** | Se um pipeline de limpeza remover dados incorretamente, voltamos ao estado anterior em minutos ("version 0 do Delta table") |
+| **Acesso unificado** | Analistas de BI usam SQL via Redshift, cientistas usam PySpark via Databricks, ambos no mesmo dado |
+| **Custo** | Geolocation com 1 milhão de registros: **R$ ~2/mês** no S3 vs **R$ ~80/mês** no Redshift |
 
 ---
 
 ## Por que Apache Spark (e não apenas AWS Glue)?
 
-### O que o AWS Glue Faz Bem
+### O que o AWS Glue Faz Bem — e Fazemos Neste Projeto
 
-O AWS Glue é adequado para:
-- ETL simples e tabulares (CSV → Parquet, renomear colunas, filtros básicos)
-- Jobs com volume moderado (até centenas de GBs)
-- Ingestão agendada sem necessidade de cluster permanente
-- Integração nativa com Glue Data Catalog
+O Glue Studio é a escolha certa para ingestão batch dos CSVs mais simples da Olist:
 
-**No TP1, usamos o Glue Studio para a ingestão batch inicial de dados tabulares simples** — como o CSV de agendamentos, onde a transformação é direta e o volume é gerenciável.
-
-### Onde o Glue Sozinho Não Performa Bem
-
-Para os cenários complexos da VidaPlus, o Glue apresenta limitações significativas:
-
-#### 1. JSON Profundamente Aninhado (Dados de Laboratório)
-
-Os resultados de laboratório chegam em JSON com múltiplos níveis de aninhamento:
-
-```json
-{
-  "paciente_id": "P001",
-  "ordem_exame": {
-    "medico_solicitante": {...},
-    "paineis": [
-      {
-        "nome": "Hemograma Completo",
-        "resultados": [
-          {
-            "analito": "Hemoglobina",
-            "valor": 13.5,
-            "unidade": "g/dL",
-            "referencia": {"min": 12.0, "max": 17.5},
-            "flags": ["NORMAL"]
-          },
-          ...
-        ]
-      }
-    ]
-  }
-}
+```python
+# Glue Job: olist_orders.csv → Parquet em Bronze
+# Simples, tabulare, schema bem definido — exatamente o caso de uso do Glue
+datasource = glueContext.create_dynamic_frame.from_options(
+    connection_type="s3",
+    connection_options={"paths": ["s3://brasilmart-raw-dev/orders/"]},
+    format="csv",
+    format_options={"withHeader": True, "separator": ","}
+)
 ```
 
-**Problema com Glue:** O Glue Studio lida bem com JSON de 1-2 níveis, mas para estruturas com arrays de objetos contendo sub-arrays (como painéis → resultados → referências), o mapeamento visual se torna impraticável e o desempenho degrada. O job precisa de lógica customizada (explode de arrays, pivot, flatten) que é mais natural em PySpark.
+Para `olist_orders`, `olist_customers`, `olist_products` e `olist_sellers` — datasets tabulares, schema estável, volume moderado — o Glue é ideal: serverless, integrado ao Glue Catalog, sem cluster para gerenciar.
+
+### Onde o Glue Sozinho Falha — e o Spark é Necessário
+
+#### 1. JSON Profundamente Aninhado (Pedido Unificado)
+
+O requisito de "ingestão de dados complexos" é atendido pela combinação dos 4 CSVs de pedidos em um único documento JSON aninhado — estrutura típica de APIs de e-commerce. O JSON gerado tem esta forma:
+
+```
+order (raiz)
+  └── customer (objeto aninhado)
+  └── timestamps (objeto aninhado com 5 campos)
+  └── items[] (array de objetos)
+       └── product_id, seller_id, price, freight...
+  └── payments[] (array de objetos)
+       └── type, installments, value...
+  └── review (objeto aninhado com texto livre)
+```
+
+**Problema com Glue:** o Glue Studio consegue processar JSON de 1-2 níveis com o mapeamento visual. Para o JSON de pedidos (4 níveis + arrays dentro de arrays), o mapeamento visual se torna impraticável e o job gerado não é eficiente. A operação `explode` em arrays aninhados requer lógica customizada.
+
+**Solução com PySpark (Databricks):**
+```python
+# PySpark lida nativamente com arrays aninhados
+df = spark.read.option("multiLine", False).json(orders_json_path)
+
+# Explodir items[] — 1 pedido → N linhas de items
+df_items = df.select("order_id", "order_status", "customer.*",
+                     F.explode("items").alias("item")) \
+             .select("*", "item.*").drop("item")
+
+# Explodir payments[] — N formas de pagamento por pedido
+df_payments = df.select("order_id", F.explode("payments").alias("pmt")) \
+                .select("order_id", "pmt.*")
+```
+
+Com PySpark, o que seria um job Glue complexo e lento vira 10 linhas de código claras, executadas em paralelo em múltiplos workers.
+
+#### 2. Geolocation Dataset: 1 Milhão de Registros
+
+O `olist_geolocation_dataset.csv` tem **1.000.163 registros** — o maior dataset do projeto. Ele é usado para enriquecer clientes e vendedores com coordenadas geográficas (lat/lng) a partir do CEP.
+
+**Problema com Glue:** um join de 99.441 clientes × 1.000.163 registros de geolocalização exige que um dos datasets caiba em memória ou seja broadcast. O Glue tem limite de memória por DPU-hour e sem controle de broadcast hints pode gerar OOM ou spill massivo para disco, multiplicando o tempo de execução.
 
 **Solução com Spark (Databricks):**
 ```python
-# PySpark lida nativamente com JSON aninhado
-df = spark.read.json("s3://vidaplus-raw/laboratorio/")
-df_exploded = (df
-    .select("paciente_id", explode("ordem_exame.paineis").alias("painel"))
-    .select("paciente_id", "painel.nome", explode("painel.resultados").alias("resultado"))
-    .select("paciente_id", "painel.nome", "resultado.*")
+# Broadcast hint para a tabela menor (customers, 99k registros)
+# O Spark distribui a cópia completa de customers para cada executor
+df_result = df_geo.join(
+    F.broadcast(df_customers),
+    on="zip_code_prefix",
+    how="left"
 )
+# Com AQE ativado, o Spark otimiza automaticamente o join strategy
+spark.conf.set("spark.sql.adaptive.enabled", "true")
 ```
 
-#### 2. Streaming de Dados de IoT (Sinais Vitais em UTI)
+#### 3. Streaming Simulado — Pedidos por Ordem Cronológica
 
-Monitores de sinais vitais em UTI enviam dados a cada segundo: frequência cardíaca, pressão arterial, saturação de O2, temperatura. Com 500 leitos de UTI na rede, são **43 milhões de registros por dia**.
+O dataset de pedidos cobre 2 anos de transações (2016-2018). Para simular um cenário de streaming (novos pedidos chegando em tempo real), processamos o dataset em ordem cronológica usando o timestamp de compra, simulando o fluxo de eventos do dia a dia do marketplace.
 
-**Problema com Glue:** O Glue Streaming existe, mas tem latência mínima de 60 segundos (micro-batch) e não oferece controle fino sobre watermarks, janelas de tempo e state management — necessários para detectar anomalias em séries temporais de sinais vitais.
+**Problema com Glue:** o Glue Streaming processa arquivos inteiros como micro-batch, não permite simular eventos baseados em timestamps internos do dado, e tem latência mínima de 60 segundos.
 
-**Solução com Spark Structured Streaming (Databricks):**
+**Solução com Spark Structured Streaming:**
 ```python
-# Processamento near-real-time com janelas de 10 segundos
-stream = (spark.readStream
-    .format("json")
-    .schema(sinais_vitais_schema)
-    .load("s3://vidaplus-raw/iot/sinais_vitais/")
-)
+# Simula chegada de pedidos em ordem cronológica
+# usando Rate Source + join com dados históricos
+df_stream = (spark.readStream
+    .format("cloudFiles")
+    .option("cloudFiles.format", "json")
+    .load("s3://brasilmart-raw-dev/orders_json/streaming/"))
 
-alertas = (stream
-    .withWatermark("timestamp", "30 seconds")
-    .groupBy(window("timestamp", "10 seconds"), "paciente_id", "leito")
-    .agg(
-        avg("freq_cardiaca").alias("fc_media"),
-        max("pressao_sistolica").alias("pa_max")
-    )
-    .filter("fc_media > 120 OR fc_media < 50 OR pa_max > 180")
-)
+# Janelas de tempo para análise de tendências de venda
+df_windowed = (df_stream
+    .withWatermark("purchase_timestamp", "10 minutes")
+    .groupBy(window("purchase_timestamp", "1 hour"), "customer_state")
+    .agg(F.count("order_id").alias("orders_per_hour"),
+         F.sum("total_value").alias("gmv_per_hour")))
 ```
 
-#### 3. Processamento de Grandes Volumes Históricos
+#### 4. Análise de Reviews com Processamento de Texto
 
-Para construir a visão 360° do paciente, é necessário cruzar 5 anos de dados de 20 hospitais — **centenas de milhões de registros** envolvendo joins complexos entre tabelas de consultas, exames, prescrições e internações.
+O dataset de reviews tem **104.719 avaliações** com campos de texto livre (`review_comment_title`, `review_comment_message`). A análise de causa raiz de reviews negativos (NLP básico) exige tokenização, remoção de stopwords e vetorização — operações que o Glue simplesmente não suporta.
 
-**Problema com Glue:** Jobs do Glue para joins massivos frequentemente enfrentam:
-- Timeout (máximo 48h para Glue ETL)
-- Out-of-memory sem controle fino de particionamento
-- Custo imprevisível (DPU-hours podem escalar rapidamente)
+**Solução com Spark MLlib:**
+```python
+from pyspark.ml.feature import Tokenizer, StopWordsRemover, HashingTF
 
-**Solução com Spark (Databricks):**
-- Controle granular de particionamento (`repartition`, `coalesce`)
-- Broadcast joins para tabelas de lookup (CID-10, TISS/TUSS)
-- Adaptive Query Execution (AQE) que otimiza o plano de execução em runtime
-- Spot instances com auto-scaling (custo até 70% menor)
-- Cache inteligente de datasets intermediários
+# Pipeline de NLP para classificar reviews negativos
+tokenizer = Tokenizer(inputCol="review_comment_message", outputCol="words")
+remover = StopWordsRemover(inputCol="words", outputCol="filtered_words",
+                           stopWords=portugues_stopwords)
+tf = HashingTF(inputCol="filtered_words", outputCol="features")
 
-#### 4. Machine Learning sobre Dados Clínicos
-
-Modelos preditivos como predição de readmissão ou detecção de infecção hospitalar exigem feature engineering complexo sobre dados distribuídos.
-
-**Problema com Glue:** Não tem integração com bibliotecas de ML. Preparar features no Glue e depois mover para outra plataforma para treinar modelos cria fricção e duplicação.
-
-**Solução com Spark MLlib (Databricks):**
-- Feature engineering e treinamento no mesmo ambiente
-- MLflow integrado para tracking de experimentos
-- Mesmo cluster Spark que processa os dados treina o modelo
+# Mesmo cluster Spark que processa os dados treina o modelo
+# sem mover dados para outra plataforma
+```
 
 ---
 
-## Comparativo Resumido
+## Comparativo Quantitativo para a BrasilMart
 
-| Critério | AWS Glue | Apache Spark (Databricks) |
-|----------|----------|--------------------------|
-| **ETL simples (CSV → Parquet)** | ✅ Ideal — serverless, sem cluster | Funciona, mas overkill |
-| **JSON aninhado (3+ níveis)** | ⚠️ Limitado — mapeamento visual falha | ✅ Nativo — explode/flatten |
-| **Streaming (latência < 30s)** | ⚠️ Mínimo 60s micro-batch | ✅ Structured Streaming ~10s |
-| **Joins massivos (100M+ rows)** | ❌ Timeout/OOM frequente | ✅ AQE + controle de partições |
-| **Machine Learning** | ❌ Não suporta | ✅ MLlib + MLflow integrados |
-| **Custo para ETL simples** | ✅ Menor (serverless) | ❌ Maior (cluster necessário) |
-| **Custo para processamento pesado** | ❌ DPU-hours imprevisíveis | ✅ Spot instances + auto-scaling |
-| **Interatividade / exploração** | ❌ Job-based, sem interação | ✅ Notebooks interativos |
+| Operação | AWS Glue | Spark/Databricks | Vencedor |
+|----------|----------|-----------------|----------|
+| Ingestão olist_orders.csv (99k linhas) | ~2 min, $0.44/hora | Cluster ocioso necessário | **Glue** |
+| Join customers × geolocation (1M rows) | OOM ou >30 min | ~3 min (broadcast join) | **Spark** |
+| Explosão JSON aninhado (4 níveis) | Complexo, lento | ~1 min (explode nativo) | **Spark** |
+| Streaming de pedidos (near-real-time) | Mín. 60s latência | ~10s latência | **Spark** |
+| NLP em 100k reviews | Não suportado | Suportado (MLlib) | **Spark** |
+| Custo para ETL simples/batch | Menor | Maior | **Glue** |
+| Custo para processamento pesado | Alto (DPU imprevisível) | Menor (spot instances) | **Spark** |
 
 ---
 
-## Conclusão: Arquitetura Dual Complementar
+## Estratégia: Dual Ingestion Complementar
 
-A estratégia adotada é **usar cada ferramenta onde ela é mais adequada**:
+A escolha não é Glue **ou** Spark — é saber usar cada um onde ele brilha:
 
-1. **AWS Glue** para ingestão batch de dados simples e tabulares (CSV de agendamentos, exports tabulares de sistemas legados), tirando proveito do modelo serverless e da integração nativa com o Glue Data Catalog.
+```
+olist_orders.csv ────────▶ AWS Glue Studio ──▶ Bronze (Parquet)
+olist_customers.csv ─────▶ AWS Glue Studio ──▶ Bronze (Parquet)
+olist_products.csv ──────▶ AWS Glue Studio ──▶ Bronze (Parquet)
+olist_sellers.csv ───────▶ AWS Glue Studio ──▶ Bronze (Parquet)
 
-2. **Apache Spark via Databricks** para todo processamento que envolve:
-   - Dados complexos (JSON aninhado, schemas heterogêneos)
-   - Grandes volumes (joins de centenas de milhões de registros)
-   - Streaming (dados de IoT em near-real-time)
-   - Machine learning (predição de readmissão, detecção de anomalias)
+orders_unified.json ─────▶ Databricks PySpark ──▶ Bronze (Delta)
+olist_geolocation.csv ───▶ Databricks PySpark ──▶ Bronze (Delta)
+olist_reviews.csv ───────▶ Databricks PySpark ──▶ Bronze (Delta)
+streaming simulado ──────▶ Databricks Streaming ▶ Bronze (Delta)
+```
 
-Esta abordagem dual maximiza o custo-benefício: não pagamos por um cluster Spark para tarefas simples que o Glue resolve por centavos, mas não limitamos nosso processamento à capacidade do Glue quando a complexidade exige o poder do Spark distribuído.
+O Delta Lake sobre S3 é o elemento unificador: ambas as ferramentas leem e escrevem no mesmo storage, governado pelo mesmo Glue Data Catalog e protegido pelo mesmo Lake Formation — garantindo uma única fonte de verdade para toda a plataforma BrasilMart.
 
-O Data Lakehouse, materializado pelo Delta Lake sobre S3, é o elemento que une as duas ferramentas: ambas leem e escrevem no mesmo formato, no mesmo storage, governado pelo mesmo catálogo — garantindo consistência, rastreabilidade e uma única fonte de verdade para toda a rede VidaPlus.
+---
+
+## Conclusão
+
+A arquitetura Data Lakehouse com ingestão dual (Glue + Spark) é a resposta técnica correta para os desafios da BrasilMart:
+
+1. **Escalabilidade**: o dataset de geolocalização com 1 milhão de registros cresce continuamente — só o Spark suporta isso com custo controlado.
+2. **Flexibilidade**: novos datasets de marketplaces adquiridos se encaixam na camada Bronze sem alterar a arquitetura Silver/Gold.
+3. **Confiabilidade**: Delta Lake com ACID garante que os analistas nunca consultem dados parcialmente atualizados.
+4. **Custo**: Glue serverless para ETL simples (sem cluster ocioso) + spot instances no Databricks para processamento pesado (70% de economia vs. on-demand).
+5. **Competitividade**: a visão 360° do cliente — impossível com sistemas atuais — se torna viável, habilitando personalização, retenção e detecção de fraude que diferem a BrasilMart da concorrência.

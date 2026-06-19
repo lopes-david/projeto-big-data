@@ -1,0 +1,64 @@
+digraph "BrasilMart — Arquitetura Data Lakehouse" {
+	graph [bgcolor=white fontcolor="#2D3436" fontname="Sans-Serif" fontsize=14 label="BrasilMart — Arquitetura Data Lakehouse" nodesep=0.60 pad=0.5 rankdir=LR ranksep=0.75 splines=ortho]
+	node [fixedsize=true fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 height=1.4 imagescale=true labelloc=b shape=box style=rounded width=1.4]
+	edge [color="#7B8894"]
+	subgraph "cluster_Fontes de Dados (Olist Dataset)" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Fontes de Dados (Olist Dataset)" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"3b05609cc71348c7ab29052837349f7c" [label="CSVs Olist
+(orders, customers
+products, reviews...)" height=2.7 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+	}
+	subgraph "cluster_Camada de Ingestão" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Camada de Ingestão" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"577a63eca7574c9fb61574d37a7ea229" [label="AWS Glue Studio
+Batch ETL
+(CSV → Parquet)" height=2.7 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/analytics/glue.png" shape=none]
+		"020a298b2d0e41b5bc35321aa0c4fb29" [label="Databricks PySpark
+JSON Aninhado
++ Streaming" height=2.7 image="/home/davidl/.local/lib/python3.12/site-packages/resources/onprem/analytics/databricks.png" shape=none]
+	}
+	subgraph "cluster_Amazon S3 — Data Lakehouse" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Amazon S3 — Data Lakehouse" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"6e483fc5f3004b5ba7deaacbd7320ca6" [label="Raw
+(CSVs originais)" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+		"381f99ced5154b1bb406b07fdb32bf47" [label="Bronze
+(Parquet / Delta)" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+		"85fdaf549bd744f7bfecd4cc99cfea1a" [label="Silver
+(Limpo / Padronizado)" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+		"851b213b024f40e89cff3ba5c71d6242" [label="Gold
+(Analítico / KPIs)" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/storage/simple-storage-service-s3.png" shape=none]
+	}
+	subgraph "cluster_Processamento — Databricks" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Processamento — Databricks" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"43cff01390e14fe1bc78e39242d53394" [label="Apache Spark
+PySpark Notebooks" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/onprem/analytics/spark.png" shape=none]
+	}
+	subgraph "cluster_Governança (LGPD)" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Governança (LGPD)" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"41dcfbfc15db476e8de464e2e16112da" [label="Glue Data Catalog
++ Lake Formation" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/analytics/glue-data-catalog.png" shape=none]
+		"3005700d2b6a44dbad2464383f84013d" [label="IAM + KMS
+(Segurança)" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/security/identity-and-access-management-iam.png" shape=none]
+	}
+	subgraph "cluster_Consumo Analítico" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="Consumo Analítico" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+		"76c95a4e49144c44ab7a389f6d89a755" [label="Amazon Redshift
+Serverless" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/aws/analytics/redshift.png" shape=none]
+		a098a54e02e644f9b3d5145c7dee3a81 [label="BI / Analistas
+Power BI / SQL" height=2.3 image="/home/davidl/.local/lib/python3.12/site-packages/resources/onprem/client/users.png" shape=none]
+	}
+	"3b05609cc71348c7ab29052837349f7c" -> "577a63eca7574c9fb61574d37a7ea229" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"577a63eca7574c9fb61574d37a7ea229" -> "381f99ced5154b1bb406b07fdb32bf47" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"3b05609cc71348c7ab29052837349f7c" -> "6e483fc5f3004b5ba7deaacbd7320ca6" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"6e483fc5f3004b5ba7deaacbd7320ca6" -> "020a298b2d0e41b5bc35321aa0c4fb29" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"020a298b2d0e41b5bc35321aa0c4fb29" -> "381f99ced5154b1bb406b07fdb32bf47" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"381f99ced5154b1bb406b07fdb32bf47" -> "43cff01390e14fe1bc78e39242d53394" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"43cff01390e14fe1bc78e39242d53394" -> "85fdaf549bd744f7bfecd4cc99cfea1a" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"85fdaf549bd744f7bfecd4cc99cfea1a" -> "851b213b024f40e89cff3ba5c71d6242" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"851b213b024f40e89cff3ba5c71d6242" -> "76c95a4e49144c44ab7a389f6d89a755" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"76c95a4e49144c44ab7a389f6d89a755" -> a098a54e02e644f9b3d5145c7dee3a81 [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"41dcfbfc15db476e8de464e2e16112da" -> "381f99ced5154b1bb406b07fdb32bf47" [color=gray dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	"41dcfbfc15db476e8de464e2e16112da" -> "85fdaf549bd744f7bfecd4cc99cfea1a" [color=gray dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	"41dcfbfc15db476e8de464e2e16112da" -> "851b213b024f40e89cff3ba5c71d6242" [color=gray dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	"3005700d2b6a44dbad2464383f84013d" -> "6e483fc5f3004b5ba7deaacbd7320ca6" [color=gray dir=none fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+}
