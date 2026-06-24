@@ -1,0 +1,121 @@
+# TP4 1.2 — Databricks Asset Bundle (DABs) para deploy do pipeline DLT em producao
+# Ref: https://docs.databricks.com/dev-tools/bundles/index.html
+# Deploy: databricks bundle deploy --target prod
+
+bundle:
+  name: pb-brasilmart
+
+variables:
+  catalog:
+    default: pb_brasilmart
+  alert_email:
+    default: david.lopes@al.infnet.edu.br
+
+workspace:
+  host: https://dbc-5f5c64be-0b42.cloud.databricks.com
+
+artifacts:
+  default:
+    type: whl
+    build: echo "no wheel build needed"
+
+include:
+  - "resources/*.yml"
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      root_path: /Workspace/Users/david.lopes@al.infnet.edu.br/.bundle/${bundle.name}/dev
+
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/david.lopes@al.infnet.edu.br/.bundle/${bundle.name}/prod
+    run_as:
+      user_name: david.lopes@al.infnet.edu.br
+
+resources:
+  pipelines:
+    pb_brasilmart_silver:
+      name: "pb-brasilmart-silver-${bundle.target}"
+      catalog: ${var.catalog}
+      target: "silver"
+      development: true
+      channel: "CURRENT"
+      photon: true
+      edition: "ADVANCED"
+      continuous: false
+      libraries:
+        - notebook:
+            path: ../src/brasilmart/databricks/tp3_01_dlt_silver.py
+        - notebook:
+            path: ../src/brasilmart/databricks/tp3_02_dlt_cdc_silver.py
+      clusters:
+        - label: "default"
+          autoscale:
+            min_workers: 1
+            max_workers: 2
+      configuration:
+        "spark.databricks.delta.preview.enabled": "true"
+
+    pb_brasilmart_silver_cdc:
+      name: "pb-brasilmart-silver-cdc-${bundle.target}"
+      catalog: ${var.catalog}
+      target: "silver"
+      development: true
+      channel: "CURRENT"
+      photon: true
+      edition: "ADVANCED"
+      continuous: false
+      libraries:
+        - notebook:
+            path: ../src/brasilmart/databricks/tp3_02_dlt_cdc_silver.py
+      clusters:
+        - label: "default"
+          autoscale:
+            min_workers: 1
+            max_workers: 2
+
+  jobs:
+    pb_brasilmart_silver_to_gold:
+      name: "pb-brasilmart-silver-to-gold-${bundle.target}"
+      max_concurrent_runs: 1
+      tags:
+        projeto: "pb-brasilmart"
+        tp: "tp4"
+        deploy: "dabs"
+      tasks:
+        - task_key: "Executar_DLT"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.pb_brasilmart_silver.id}
+            full_refresh: false
+          timeout_seconds: 3600
+
+        - task_key: "Executar_Notebook_Validacao"
+          depends_on:
+            - task_key: "Executar_DLT"
+              outcome: "success"
+          notebook_task:
+            notebook_path: ../src/brasilmart/databricks/tp3_03_validacao_silver.py
+          timeout_seconds: 600
+
+        - task_key: "Otimizar_Tabela_Gold"
+          depends_on:
+            - task_key: "Executar_Notebook_Validacao"
+              outcome: "success"
+          notebook_task:
+            notebook_path: ../src/brasilmart/databricks/tp3_05_otimizar_gold.py
+          timeout_seconds: 1200
+
+        - task_key: "Enviar_Alerta_Falha"
+          depends_on:
+            - task_key: "Executar_DLT"
+              outcome: "failed"
+          notebook_task:
+            notebook_path: ../src/brasilmart/databricks/tp3_04_alerta_falha.py
+          timeout_seconds: 300
+
+      queue:
+        enabled: true

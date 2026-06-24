@@ -1,0 +1,23 @@
+pb_brasilmart:
+  target: dev
+  outputs:
+    dev:
+      type: redshift
+      host: default-workgroup.234828142988.sa-east-1.redshift-serverless.amazonaws.com
+      port: 5439
+      dbname: dev
+      schema: pb_bronze
+      user: admin
+      password: "{{ env_var('REDSHIFT_PASSWORD') }}"
+      threads: 4
+      connect_timeout: 30
+    prod:
+      type: redshift
+      host: default-workgroup.234828142988.sa-east-1.redshift-serverless.amazonaws.com
+      port: 5439
+      dbname: dev
+      schema: pb_bronze
+      user: admin
+      password: "{{ env_var('REDSHIFT_PASSWORD') }}"
+      threads: 4
+      connect_timeout: 30

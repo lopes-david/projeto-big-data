@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: dim_clientes_rfm
+    description: "Segmentação RFM de clientes (Champions, Loyal, At Risk, Lost)"
+    columns:
+      - name: customer_unique_id
+        tests:
+          - not_null
+          - unique
+      - name: rfm_segment
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Champions', 'Loyal', 'New', 'At Risk', 'Lost', 'Hibernating']
+
+  - name: fato_vendas_diarias
+    description: "GMV, pedidos e ticket médio agregados por dia"
+    columns:
+      - name: data_venda
+        tests:
+          - not_null
+          - unique
+      - name: gmv
+        tests:
+          - not_null
+
+  - name: dim_sellers_score
+    description: "Score composto de vendedores (reviews 40%, on-time 30%, cancel 20%, volume 10%)"
+    columns:
+      - name: seller_id
+        tests:
+          - not_null
+          - unique
+      - name: seller_tier
+        tests:
+          - accepted_values:
+              values: ['Excelente', 'Bom', 'Regular', 'Critico']
+
+  - name: dim_produtos_performance
+    description: "Performance de produtos com status de atividade e métricas de venda"
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+          - unique
+      - name: product_status
+        tests:
+          - accepted_values:
+              values: ['Ativo', 'Moderado', 'Baixo', 'Inativo']

@@ -44,3 +44,21 @@ variable "project_name" {
   type        = string
   default     = "brasilmart"
 }
+
+variable "account_id" {
+  description = "AWS Account ID"
+  type        = string
+  default     = "234828142988"
+}
+
+variable "codestar_connection_arn" {
+  description = "ARN da CodeStar Connection para o GitHub"
+  type        = string
+  default     = ""
+}
+
+variable "alert_email" {
+  description = "E-mail para alertas SNS"
+  type        = string
+  default     = "david.lopes@al.infnet.edu.br"
+}

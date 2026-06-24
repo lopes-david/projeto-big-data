@@ -1,0 +1,106 @@
+version: 2
+
+sources:
+  - name: bronze
+    schema: pb_bronze
+    description: "Dados brutos do Olist carregados na camada Bronze (Glue/Redshift)"
+    tables:
+      - name: orders
+        description: "Pedidos — 99.441 registros"
+      - name: customers
+        description: "Clientes — 99.441 registros"
+      - name: items
+        description: "Itens de pedido"
+      - name: payments
+        description: "Pagamentos"
+      - name: reviews
+        description: "Avaliações"
+      - name: products
+        description: "Produtos — 32.951 SKUs"
+      - name: sellers
+        description: "Vendedores — 3.095 sellers"
+      - name: category_translation
+        description: "Tradução categorias pt→en"
+
+  - name: databricks_silver
+    schema: raw_databricks
+    description: "Tabelas Silver transferidas do Databricks (DLT) para o Redshift via conector Spark-Redshift"
+    tables:
+      - name: orders
+        description: "Pedidos limpos com tempos decorridos (seg), delta entrega e status"
+      - name: customers
+        description: "Clientes com CEP formatado, cidade/estado padronizados"
+      - name: items
+        description: "Itens com valores monetários validados e total calculado"
+      - name: payments
+        description: "Pagamentos com tipo agrupado e valor validado"
+      - name: reviews
+        description: "Avaliações com sentimento classificado e tempo de resposta"
+      - name: products
+        description: "Produtos com categoria EN, peso kg, volume cm³ e porte"
+      - name: sellers
+        description: "Vendedores com CEP/cidade/estado padronizados"
+      - name: orders_enriched
+        description: "Pedidos enriquecidos com dados do cliente e resumo de pagamento"
+      - name: items_enriched
+        description: "Itens enriquecidos com dados do produto e do vendedor"
+
+models:
+  - name: stg_orders
+    description: "Orders limpos com delta_entrega e status_entrega"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        tests:
+          - not_null
+
+  - name: stg_customers
+    description: "Clientes com estado/cidade padronizados e CEP formatado"
+    columns:
+      - name: customer_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_items
+    description: "Itens com valores monetários validados e total calculado"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+
+  - name: stg_payments
+    description: "Pagamentos com tipo agrupado e valores validados"
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+
+  - name: stg_reviews
+    description: "Avaliações com sentimento classificado"
+    columns:
+      - name: review_id
+        tests:
+          - not_null
+      - name: order_id
+        tests:
+          - not_null
+
+  - name: stg_products
+    description: "Produtos com categoria traduzida e peso em kg"
+    columns:
+      - name: product_id
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_sellers
+    description: "Vendedores com cidade/estado padronizados"
+    columns:
+      - name: seller_id
+        tests:
+          - not_null
+          - unique

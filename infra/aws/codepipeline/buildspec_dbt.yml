@@ -1,0 +1,69 @@
+# TP4 1.1 — CodeBuild buildspec para deploy do projeto dbt no Redshift
+# Pipeline: pb-brasilmart-cicd → Stage Build_dbt
+# Executa dbt deps + dbt run + dbt test no ambiente de produção
+
+version: 0.2
+
+env:
+  variables:
+    DBT_PROJECT_DIR: "dbt/pb_brasilmart"
+    DBT_TARGET: "prod"
+  secrets-manager:
+    REDSHIFT_HOST: "pb-brasilmart/redshift:host"
+    REDSHIFT_PASSWORD: "pb-brasilmart/redshift:password"
+    REDSHIFT_USER: "pb-brasilmart/redshift:user"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "=== Instalando dbt-redshift ==="
+      - pip install dbt-redshift==1.8.*
+
+  pre_build:
+    commands:
+      - echo "=== Validando projeto dbt ==="
+      - cd $DBT_PROJECT_DIR
+      - |
+        cat > profiles.yml <<EOF
+        pb_brasilmart:
+          target: prod
+          outputs:
+            prod:
+              type: redshift
+              host: $REDSHIFT_HOST
+              port: 5439
+              dbname: dev
+              schema: pb_bronze
+              user: $REDSHIFT_USER
+              password: $REDSHIFT_PASSWORD
+              threads: 4
+              connect_timeout: 30
+        EOF
+      - dbt deps
+      - dbt debug --target prod
+
+  build:
+    commands:
+      - echo "=== Executando dbt run (staging + marts) ==="
+      - dbt run --target prod --select staging+ marts+
+      - echo "=== Executando dbt test ==="
+      - dbt test --target prod
+
+  post_build:
+    commands:
+      - echo "=== dbt deploy concluido com sucesso ==="
+      - dbt docs generate --target prod
+
+artifacts:
+  files:
+    - "dbt/pb_brasilmart/target/manifest.json"
+    - "dbt/pb_brasilmart/target/run_results.json"
+    - "dbt/pb_brasilmart/target/catalog.json"
+  discard-paths: no
+
+cache:
+  paths:
+    - "/root/.dbt/**/*"
+    - "dbt/pb_brasilmart/dbt_packages/**/*"

@@ -1,0 +1,213 @@
+{
+  "Comment": "TP3 2.1 — Orquestração AWS Step Functions: Carga Redshift → Disparo Databricks → Finalização dbt",
+  "StartAt": "Carga_Inicial_Redshift",
+  "States": {
+
+    "Carga_Inicial_Redshift": {
+      "Type": "Task",
+      "Comment": "Executa COPY dos dados Bronze (S3 Parquet) para o schema pb_bronze do Redshift Serverless",
+      "Resource": "arn:aws:states:::aws-sdk:redshiftdata:executeStatement",
+      "Parameters": {
+        "WorkgroupName": "default-workgroup",
+        "Database": "dev",
+        "Sql": "CALL pb_bronze.sp_carga_bronze_from_s3();",
+        "StatementName": "CargaBronzeRedshift"
+      },
+      "ResultPath": "$.redshift_result",
+      "Next": "Aguardar_Carga_Redshift",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Falha_Carga_Redshift"
+        }
+      ]
+    },
+
+    "Aguardar_Carga_Redshift": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "Verificar_Status_Carga"
+    },
+
+    "Verificar_Status_Carga": {
+      "Type": "Task",
+      "Comment": "Verifica se o statement do Redshift terminou",
+      "Resource": "arn:aws:states:::aws-sdk:redshiftdata:describeStatement",
+      "Parameters": {
+        "Id.$": "$.redshift_result.Id"
+      },
+      "ResultPath": "$.status_check",
+      "Next": "Carga_Concluida?"
+    },
+
+    "Carga_Concluida?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.status_check.Status",
+          "StringEquals": "FINISHED",
+          "Next": "Disparo_Databricks_DLT"
+        },
+        {
+          "Variable": "$.status_check.Status",
+          "StringEquals": "FAILED",
+          "Next": "Falha_Carga_Redshift"
+        },
+        {
+          "Variable": "$.status_check.Status",
+          "StringEquals": "ABORTED",
+          "Next": "Falha_Carga_Redshift"
+        }
+      ],
+      "Default": "Aguardar_Carga_Redshift"
+    },
+
+    "Disparo_Databricks_DLT": {
+      "Type": "Task",
+      "Comment": "Dispara o Databricks Workflow (pb-brasilmart-silver-to-gold) via API REST",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Parameters": {
+        "ApiEndpoint": "https://dbc-5f5c64be-0b42.cloud.databricks.com/api/2.1/jobs/run-now",
+        "Method": "POST",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:sa-east-1:234828142988:connection/databricks-api"
+        },
+        "Headers": {
+          "Content-Type": "application/json"
+        },
+        "RequestBody": {
+          "job_id": "{{DATABRICKS_JOB_ID}}"
+        }
+      },
+      "ResultPath": "$.databricks_result",
+      "Next": "Aguardar_Databricks",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Falha_Databricks"
+        }
+      ]
+    },
+
+    "Aguardar_Databricks": {
+      "Type": "Wait",
+      "Comment": "Aguarda o pipeline DLT + validação + otimização completarem no Databricks",
+      "Seconds": 120,
+      "Next": "Verificar_Status_Databricks"
+    },
+
+    "Verificar_Status_Databricks": {
+      "Type": "Task",
+      "Comment": "Consulta o status do run no Databricks",
+      "Resource": "arn:aws:states:::http:invoke",
+      "Parameters": {
+        "ApiEndpoint.$": "States.Format('https://dbc-5f5c64be-0b42.cloud.databricks.com/api/2.1/jobs/runs/get?run_id={}', $.databricks_result.ResponseBody.run_id)",
+        "Method": "GET",
+        "Authentication": {
+          "ConnectionArn": "arn:aws:events:sa-east-1:234828142988:connection/databricks-api"
+        }
+      },
+      "ResultPath": "$.databricks_status",
+      "Next": "Databricks_Concluido?"
+    },
+
+    "Databricks_Concluido?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.databricks_status.ResponseBody.state.life_cycle_state",
+          "StringEquals": "TERMINATED",
+          "Next": "Databricks_Sucesso?"
+        },
+        {
+          "Variable": "$.databricks_status.ResponseBody.state.life_cycle_state",
+          "StringEquals": "INTERNAL_ERROR",
+          "Next": "Falha_Databricks"
+        }
+      ],
+      "Default": "Aguardar_Databricks"
+    },
+
+    "Databricks_Sucesso?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.databricks_status.ResponseBody.state.result_state",
+          "StringEquals": "SUCCESS",
+          "Next": "Finalizacao_dbt"
+        }
+      ],
+      "Default": "Falha_Databricks"
+    },
+
+    "Finalizacao_dbt": {
+      "Type": "Task",
+      "Comment": "Executa dbt run no Redshift para gerar as tabelas Gold (staging views + marts tables)",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "pb-brasilmart-dbt-runner",
+        "Payload": {
+          "command": "dbt run",
+          "project_dir": "dbt/pb_brasilmart",
+          "target": "prod",
+          "select": "staging+ marts+"
+        }
+      },
+      "ResultPath": "$.dbt_result",
+      "Next": "Pipeline_Concluido",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 1,
+          "BackoffRate": 1.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Falha_dbt"
+        }
+      ]
+    },
+
+    "Pipeline_Concluido": {
+      "Type": "Succeed",
+      "Comment": "Fluxo completo: Redshift carregado → Databricks DLT processado → dbt Gold gerado"
+    },
+
+    "Falha_Carga_Redshift": {
+      "Type": "Fail",
+      "Error": "CargaRedshiftError",
+      "Cause": "Falha na carga inicial dos dados Bronze no Redshift Serverless"
+    },
+
+    "Falha_Databricks": {
+      "Type": "Fail",
+      "Error": "DatabricksWorkflowError",
+      "Cause": "Falha no Databricks Workflow (DLT Silver ou validação)"
+    },
+
+    "Falha_dbt": {
+      "Type": "Fail",
+      "Error": "dbtRunError",
+      "Cause": "Falha na execução do dbt run para geração das tabelas Gold"
+    }
+  }
+}

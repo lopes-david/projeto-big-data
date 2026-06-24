@@ -1,7 +1,29 @@
 # Credenciais e contexto local
 .env
 .env.*
+.env.local
 CONTEXTO.md
+*.pem
+*.key
+*.crt
+credentials.json
+service-account*.json
+secrets/
+
+# Terraform state (contem dados sensiveis)
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+tfplan
+
+# dbt (artefatos locais)
+dbt/pb_brasilmart/target/
+dbt/pb_brasilmart/dbt_packages/
+dbt/pb_brasilmart/logs/
+
+# Databricks
+.databricks/
 
 # Python
 __pycache__/

@@ -1,0 +1,47 @@
+# TP4 1.1 — CodeBuild buildspec para deploy de infraestrutura AWS (Terraform)
+# Pipeline: pb-brasilmart-cicd → Stage Deploy_Infra
+# Aplica alteracoes em IAM Roles, S3 policies, Glue, Lake Formation etc.
+
+version: 0.2
+
+env:
+  variables:
+    TF_DIR: "infra/terraform"
+    TF_VERSION: "1.9.0"
+    AWS_DEFAULT_REGION: "sa-east-1"
+
+phases:
+  install:
+    commands:
+      - echo "=== Instalando Terraform $TF_VERSION ==="
+      - curl -fsSL https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip -o terraform.zip
+      - unzip -o terraform.zip -d /usr/local/bin/
+      - terraform --version
+
+  pre_build:
+    commands:
+      - echo "=== Terraform init ==="
+      - cd $TF_DIR
+      - terraform init -input=false
+      - echo "=== Terraform validate ==="
+      - terraform validate
+      - echo "=== Terraform plan ==="
+      - terraform plan -input=false -out=tfplan
+
+  build:
+    commands:
+      - echo "=== Terraform apply ==="
+      - cd $TF_DIR
+      - terraform apply -input=false -auto-approve tfplan
+
+  post_build:
+    commands:
+      - echo "=== Infraestrutura atualizada com sucesso ==="
+      - cd $TF_DIR
+      - terraform output -json > tf_outputs.json
+
+artifacts:
+  files:
+    - "infra/terraform/tf_outputs.json"
+    - "infra/terraform/tfplan"
+  discard-paths: no

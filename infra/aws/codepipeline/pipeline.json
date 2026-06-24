@@ -1,0 +1,110 @@
+{
+  "Comment": "TP4 1.1 — AWS CodePipeline: CI/CD para deploy de dbt e infraestrutura AWS",
+  "pipeline": {
+    "name": "pb-brasilmart-cicd",
+    "roleArn": "arn:aws:iam::234828142988:role/CodePipelineServiceRole-pb-brasilmart",
+    "stages": [
+      {
+        "name": "Source",
+        "actions": [
+          {
+            "name": "GitHub_Source",
+            "actionTypeId": {
+              "category": "Source",
+              "owner": "AWS",
+              "provider": "CodeStarSourceConnection",
+              "version": "1"
+            },
+            "configuration": {
+              "ConnectionArn": "arn:aws:codeconnections:sa-east-1:234828142988:connection/{{CODESTAR_CONNECTION_ID}}",
+              "FullRepositoryId": "lopes-david/tp1",
+              "BranchName": "main",
+              "OutputArtifactFormat": "CODE_ZIP",
+              "DetectChanges": "true"
+            },
+            "outputArtifacts": [
+              { "name": "SourceArtifact" }
+            ],
+            "runOrder": 1
+          }
+        ]
+      },
+      {
+        "name": "Deploy_Infra",
+        "actions": [
+          {
+            "name": "Terraform_Apply",
+            "actionTypeId": {
+              "category": "Build",
+              "owner": "AWS",
+              "provider": "CodeBuild",
+              "version": "1"
+            },
+            "configuration": {
+              "ProjectName": "pb-brasilmart-infra-build",
+              "EnvironmentVariablesOverride": "[{\"name\":\"TF_DIR\",\"value\":\"infra/terraform\",\"type\":\"PLAINTEXT\"}]"
+            },
+            "inputArtifacts": [
+              { "name": "SourceArtifact" }
+            ],
+            "outputArtifacts": [
+              { "name": "InfraArtifact" }
+            ],
+            "runOrder": 1
+          }
+        ]
+      },
+      {
+        "name": "Build_dbt",
+        "actions": [
+          {
+            "name": "dbt_Run_Test",
+            "actionTypeId": {
+              "category": "Build",
+              "owner": "AWS",
+              "provider": "CodeBuild",
+              "version": "1"
+            },
+            "configuration": {
+              "ProjectName": "pb-brasilmart-dbt-build",
+              "EnvironmentVariablesOverride": "[{\"name\":\"DBT_TARGET\",\"value\":\"prod\",\"type\":\"PLAINTEXT\"}]"
+            },
+            "inputArtifacts": [
+              { "name": "SourceArtifact" }
+            ],
+            "outputArtifacts": [
+              { "name": "dbtArtifact" }
+            ],
+            "runOrder": 1
+          }
+        ]
+      }
+    ],
+    "artifactStore": {
+      "type": "S3",
+      "location": "pb-brasilmart-codepipeline-artifacts-234828142988"
+    },
+    "version": 1
+  },
+
+  "_docs": {
+    "descricao": "Pipeline CI/CD com 3 stages: Source (GitHub) → Deploy_Infra (Terraform) → Build_dbt (dbt run + test)",
+    "pre_requisitos": [
+      "1. Criar CodeStar Connection para o repositório GitHub (Console → Developer Tools → Connections)",
+      "2. Criar bucket S3 para artefatos: pb-brasilmart-codepipeline-artifacts-234828142988",
+      "3. Criar IAM Role CodePipelineServiceRole-pb-brasilmart com policies: AWSCodePipelineFullAccess, S3, CodeBuild",
+      "4. Criar secret no Secrets Manager: pb-brasilmart/redshift com host, user, password",
+      "5. Criar projetos CodeBuild: pb-brasilmart-infra-build (buildspec_infra.yml) e pb-brasilmart-dbt-build (buildspec_dbt.yml)"
+    ],
+    "como_criar": [
+      "aws codepipeline create-pipeline --cli-input-json file://infra/aws/codepipeline/pipeline.json",
+      "Ou importar via Console → CodePipeline → Create pipeline"
+    ],
+    "fluxo": [
+      "Push no main → Source detecta mudança →",
+      "  Stage Deploy_Infra: terraform init → validate → plan → apply",
+      "  Stage Build_dbt: dbt deps → dbt run → dbt test → dbt docs generate",
+      "Os dois stages de deploy rodam em paralelo (mesmo runOrder)"
+    ]
+  }
+}

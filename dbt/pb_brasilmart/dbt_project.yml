@@ -1,0 +1,26 @@
+name: 'pb_brasilmart'
+version: '1.0.0'
+config-version: 2
+
+profile: 'pb_brasilmart'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  pb_brasilmart:
+    staging:
+      +schema: pb_silver
+      +materialized: view
+    marts:
+      +schema: pb_gold
+      +materialized: table
+      +bind: false

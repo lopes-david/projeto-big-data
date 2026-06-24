@@ -1,0 +1,86 @@
+{
+  "name": "pb-brasilmart-silver-to-gold",
+  "description": "TP3 2.2/2.3 — Workflow Databricks: DLT Silver → Validação → Otimização Gold, com ramificação condicional (falha → alerta)",
+  "max_concurrent_runs": 1,
+  "tasks": [
+    {
+      "task_key": "Executar_DLT",
+      "description": "Executa o pipeline DLT que transforma Bronze → Silver (11 tabelas + expectations)",
+      "pipeline_task": {
+        "pipeline_id": "{{DLT_PIPELINE_ID}}",
+        "full_refresh": false
+      },
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "Executar_Notebook_Validacao",
+      "description": "Valida contagens, nulos e integridade referencial da camada Silver",
+      "depends_on": [
+        {
+          "task_key": "Executar_DLT",
+          "outcome": "success"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Workspace/PB-BrasilMart/PB-TP3-03_validacao_silver",
+        "source": "WORKSPACE"
+      },
+      "timeout_seconds": 600
+    },
+    {
+      "task_key": "Otimizar_Tabela_Gold",
+      "description": "OPTIMIZE + Z-ORDER + VACUUM nas tabelas Gold após validação bem-sucedida",
+      "depends_on": [
+        {
+          "task_key": "Executar_Notebook_Validacao",
+          "outcome": "success"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Workspace/PB-BrasilMart/PB-TP3-05_otimizar_gold",
+        "source": "WORKSPACE"
+      },
+      "timeout_seconds": 1200
+    },
+    {
+      "task_key": "Enviar_Alerta_Falha",
+      "description": "Ramificação condicional: se o DLT falhar, envia alerta simulado com detalhes do erro",
+      "depends_on": [
+        {
+          "task_key": "Executar_DLT",
+          "outcome": "failed"
+        }
+      ],
+      "notebook_task": {
+        "notebook_path": "/Workspace/PB-BrasilMart/PB-TP3-04_alerta_falha",
+        "source": "WORKSPACE"
+      },
+      "timeout_seconds": 300
+    }
+  ],
+  "queue": {
+    "enabled": true
+  },
+  "tags": {
+    "projeto": "pb-brasilmart",
+    "tp": "tp3",
+    "camada": "silver-to-gold"
+  },
+  "format": "MULTI_TASK",
+
+  "_docs": {
+    "grafo_de_execucao": [
+      "Executar_DLT",
+      "  ├── [SUCCESS] → Executar_Notebook_Validacao",
+      "  │                  └── [SUCCESS] → Otimizar_Tabela_Gold",
+      "  └── [FAILED]  → Enviar_Alerta_Falha"
+    ],
+    "como_criar_no_databricks": [
+      "1. Workflows → Create Job",
+      "2. Importar este JSON via API: POST /api/2.1/jobs/create",
+      "3. Substituir {{DLT_PIPELINE_ID}} pelo ID real do pipeline DLT",
+      "4. Ou criar manualmente pela UI seguindo a estrutura de tasks acima"
+    ],
+    "ramificacao_condicional_2_3": "A task Enviar_Alerta_Falha depende de Executar_DLT com outcome='failed'. Isso implementa o IF/ELSE: DLT falha → alerta, DLT sucesso → validação → otimização."
+  }
+}
