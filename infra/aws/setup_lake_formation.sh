@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-PROJECT="brasilmart"
+PROJECT="pb-brasilmart"
 ENV="${1:-dev}"
 REGION="us-east-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

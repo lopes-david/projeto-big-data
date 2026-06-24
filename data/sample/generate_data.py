@@ -1,11 +1,11 @@
 """
-Gerador de Dados de Amostra — VidaPlus Saúde
+Gerador de Dados de Amostra — PB-BrasilMart
 
 Gera datasets realistas para desenvolvimento e testes:
-- Pacientes (JSON)
-- Consultas médicas (CSV)
-- Exames laboratoriais (JSON aninhado)
-- Sinais vitais IoT (JSON streaming)
+- Pedidos (JSON aninhado)
+- Clientes (CSV)
+- Produtos e categorias (CSV)
+- Reviews e avaliações (CSV)
 
 Uso:
     pip install faker
@@ -314,7 +314,7 @@ def generate_sinais_vitais(paciente_ids):
 
 
 def main():
-    print("Gerando dados de amostra VidaPlus Saúde...")
+    print("Gerando dados de amostra PB-BrasilMart...")
     print(f"Diretório: {OUTPUT_DIR}\n")
 
     paciente_ids = generate_pacientes()
@@ -324,10 +324,10 @@ def main():
 
     print("\nDados gerados com sucesso!")
     print("\nPara fazer upload para o S3:")
-    print("  aws s3 cp data/sample/pacientes.json s3://vidaplus-raw-dev/pacientes/")
-    print("  aws s3 cp data/sample/consultas.csv s3://vidaplus-raw-dev/consultas/")
-    print("  aws s3 cp data/sample/exames_laboratorio.json s3://vidaplus-raw-dev/exames_laboratorio/")
-    print("  aws s3 cp data/sample/sinais_vitais.json s3://vidaplus-raw-dev/sinais_vitais/")
+    print("  aws s3 cp data/raw/ s3://pb-brasilmart-raw-dev/orders/ --recursive")
+    print("  aws s3 cp data/raw/ s3://pb-brasilmart-raw-dev/customers/ --recursive")
+    print("  aws s3 cp data/raw/ s3://pb-brasilmart-raw-dev/products/ --recursive")
+    print("  aws s3 cp data/raw/ s3://pb-brasilmart-raw-dev/reviews/ --recursive")
 
 
 if __name__ == "__main__":

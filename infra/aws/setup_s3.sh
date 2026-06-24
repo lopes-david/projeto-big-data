@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-PROJECT="brasilmart"
+PROJECT="pb-brasilmart"
 ENV="${1:-dev}"
 REGION="us-east-1"
 
@@ -79,7 +79,7 @@ echo "Criando estrutura de diretórios..."
 
 for LAYER in "${BUCKETS[@]}"; do
     BUCKET_NAME="${PROJECT}-${LAYER}-${ENV}"
-    for DIR in consultas pacientes exames_laboratorio sinais_vitais prescricoes; do
+    for DIR in orders customers products sellers payments reviews geolocation; do
         aws s3api put-object --bucket "${BUCKET_NAME}" --key "${DIR}/" > /dev/null
     done
     echo "  ✓ Diretórios criados em ${BUCKET_NAME}"

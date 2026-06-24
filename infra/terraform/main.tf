@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "brasilmart-terraform-state"
+    bucket = "pb-brasilmart-terraform-state"
     key    = "data-platform/terraform.tfstate"
     region = "us-east-1"
   }
@@ -42,7 +42,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name prefix for resource naming"
   type        = string
-  default     = "brasilmart"
+  default     = "pb-brasilmart"
 }
 
 variable "account_id" {

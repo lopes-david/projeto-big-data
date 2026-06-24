@@ -12,7 +12,7 @@ locals {
           transition_days        = 90
           transition_class       = "STANDARD_IA"
           glacier_transition_days = 365
-          expiration_days        = 2555 # 7 anos (requisito regulatório saúde)
+          expiration_days        = 2555 # 7 anos (requisito regulatório e-commerce/LGPD)
         }
       ]
     }
@@ -131,7 +131,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "lakehouse" {
 
 # KMS Key for S3 encryption
 resource "aws_kms_key" "data_platform" {
-  description             = "KMS key for VidaPlus Data Platform encryption"
+  description             = "KMS key for BrasilMart Data Platform encryption"
   deletion_window_in_days = 30
   enable_key_rotation     = true
 }

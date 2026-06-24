@@ -1,8 +1,53 @@
 version: 2
 
 models:
+  - name: dim_tempo
+    description: >
+      Dimensão de Tempo (Kimball): uma linha por dia de venda, com atributos
+      hierárquicos (ano → trimestre → mês → dia) e classificação de sazonalidade
+      para análises de tendência e comparações year-over-year. Justificativa:
+      isolar atributos temporais evita cálculos repetidos nos fatos e permite
+      drill-down/roll-up analítico direto no QuickSight.
+    columns:
+      - name: data_id
+        tests:
+          - not_null
+          - unique
+      - name: trimestre
+        tests:
+          - not_null
+      - name: sazonalidade_varejo
+        tests:
+          - accepted_values:
+              values: ['Alta', 'Media', 'Baixa']
+
+  - name: dim_localizacao
+    description: >
+      Dimensão Geográfica (Kimball): localidades unificadas de clientes e
+      vendedores com hierarquia (região → estado → cidade) e classificação de
+      tier de mercado. Justificativa: consolida dados geográficos dispersos em
+      múltiplas tabelas operacionais, permitindo análises regionais cruzadas
+      (ex: vendedor SP atendendo cliente BA) e filtros por macro-região.
+    columns:
+      - name: localizacao_id
+        tests:
+          - not_null
+          - unique
+      - name: estado
+        tests:
+          - not_null
+      - name: regiao
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul', 'Outros']
+
   - name: dim_clientes_rfm
-    description: "Segmentação RFM de clientes (Champions, Loyal, At Risk, Lost)"
+    description: >
+      Dimensão de Clientes (Kimball): segmentação RFM (Recency, Frequency,
+      Monetary) para identificar Champions, Loyal, At Risk e Lost. Justificativa:
+      o marketplace precisa priorizar retenção de clientes de alto valor e
+      reativar clientes em risco — métricas centrais do requisito R1 (TP1).
     columns:
       - name: customer_unique_id
         tests:
@@ -14,19 +59,28 @@ models:
           - accepted_values:
               values: ['Champions', 'Loyal', 'New', 'At Risk', 'Lost', 'Hibernating']
 
-  - name: fato_vendas_diarias
-    description: "GMV, pedidos e ticket médio agregados por dia"
+  - name: dim_produtos_performance
+    description: >
+      Dimensão de Produtos (Kimball): performance de cada SKU com métricas de
+      venda, reviews e status de atividade. Justificativa: a equipe de catálogo
+      precisa identificar produtos inativos e com alta taxa de review negativo
+      para ações de curadoria — requisito R5 (TP1).
     columns:
-      - name: data_venda
+      - name: product_id
         tests:
           - not_null
           - unique
-      - name: gmv
+      - name: product_status
         tests:
-          - not_null
+          - accepted_values:
+              values: ['Ativo', 'Moderado', 'Baixo', 'Inativo']
 
   - name: dim_sellers_score
-    description: "Score composto de vendedores (reviews 40%, on-time 30%, cancel 20%, volume 10%)"
+    description: >
+      Dimensão de Vendedores (Kimball): score composto (reviews 40%, on-time 30%,
+      cancel 20%, volume 10%) e classificação em tiers. Justificativa: governança
+      do marketplace exige monitorar qualidade dos sellers para decisões de
+      penalização ou destaque — requisito R4 (TP1).
     columns:
       - name: seller_id
         tests:
@@ -37,14 +91,40 @@ models:
           - accepted_values:
               values: ['Excelente', 'Bom', 'Regular', 'Critico']
 
-  - name: dim_produtos_performance
-    description: "Performance de produtos com status de atividade e métricas de venda"
+  - name: fato_vendas_diarias
+    description: >
+      Tabela Fato (Kimball): GMV, pedidos e ticket médio agregados por dia.
+      Grain: um registro por data de venda. Incremental (delete+insert) para
+      eficiência em re-processamentos. FKs implícitas para dim_tempo (data_venda)
+      e dim_localizacao (via join com dim_clientes_rfm.customer_state).
     columns:
-      - name: product_id
+      - name: data_venda
         tests:
           - not_null
           - unique
-      - name: product_status
+      - name: gmv
         tests:
+          - not_null
+
+  - name: features_ml
+    description: >
+      Features pré-agregadas no nível de pedido para consumo do modelo de ML
+      (predição de atraso — TP4). Replica a feature engineering do Databricks
+      em SQL/dbt, otimizada para leitura bulk. Requisito TP1 Questão 3 (Diretor de Operações).
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+          - unique
+      - name: label
+        description: "Target: 1 = atrasado, 0 = no_prazo"
+        tests:
+          - not_null
           - accepted_values:
-              values: ['Ativo', 'Moderado', 'Baixo', 'Inativo']
+              values: [0, 1]
+      - name: tempo_aprovacao_seg
+        tests:
+          - not_null
+      - name: customer_state
+        tests:
+          - not_null

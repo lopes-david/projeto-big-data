@@ -6,7 +6,7 @@
 O workspace Databricks foi provisionado na AWS via Account Console, conectado à mesma conta AWS onde residem os buckets S3 do Data Lakehouse.
 
 **Configurações do Workspace:**
-- **Nome:** `vidaplus-data-platform`
+- **Nome:** `pb-brasilmart-data-platform`
 - **Região AWS:** `us-east-1` (mesma dos buckets S3)
 - **Pricing Tier:** Premium (necessário para Unity Catalog e controle de acesso)
 - **Credential Configuration:** Cross-account IAM Role para acesso ao S3
@@ -16,10 +16,10 @@ O workspace foi configurado com Instance Profile que permite acesso direto aos b
 
 ```
 Buckets acessíveis:
-  - s3://vidaplus-raw-dev/          (leitura)
-  - s3://vidaplus-bronze-dev/       (leitura/escrita)
-  - s3://vidaplus-silver-dev/       (leitura/escrita)
-  - s3://vidaplus-gold-dev/         (leitura/escrita)
+  - s3://pb-brasilmart-raw-dev/          (leitura)
+  - s3://pb-brasilmart-bronze-dev/       (leitura/escrita)
+  - s3://pb-brasilmart-silver-dev/       (leitura/escrita)
+  - s3://pb-brasilmart-gold-dev/         (leitura/escrita)
 ```
 
 ---
@@ -30,7 +30,7 @@ Buckets acessíveis:
 
 | Parâmetro | Valor | Justificativa |
 |-----------|-------|---------------|
-| **Nome** | `vidaplus-dev` | Identificação clara do propósito |
+| **Nome** | `pb-brasilmart-dev` | Identificação clara do propósito |
 | **Databricks Runtime** | 14.3 LTS (Spark 3.5.0, Scala 2.12) | LTS para estabilidade |
 | **Node Type (Driver)** | m5.xlarge (4 vCPUs, 16 GB RAM) | Suficiente para desenvolvimento |
 | **Node Type (Workers)** | m5.xlarge (4 vCPUs, 16 GB RAM) | Custo-benefício |
@@ -46,7 +46,7 @@ Buckets acessíveis:
 
 | Parâmetro | Valor | Justificativa |
 |-----------|-------|---------------|
-| **Nome** | `vidaplus-etl-prod` | Identificação clara |
+| **Nome** | `pb-brasilmart-etl-prod` | Identificação clara |
 | **Databricks Runtime** | 14.3 LTS | Mesmo runtime do dev para consistência |
 | **Node Type (Driver)** | m5.xlarge | Driver não precisa ser grande |
 | **Node Type (Workers)** | m5.2xlarge (8 vCPUs, 32 GB RAM) | Mais memória para joins massivos |
@@ -74,10 +74,10 @@ Buckets acessíveis:
 
 ```
 /Workspace/
-  └── VidaPlus/
+  └── PB-BrasilMart/
       ├── 01_Ingestao/
-      │   ├── 01_ingestao_json_aninhado      (Exames Lab - JSON aninhado → Bronze)
-      │   └── 02_streaming_simulado           (Sinais Vitais IoT → Bronze)
+      │   ├── 01_ingestao_json_aninhado      (Orders JSON aninhado → Bronze)
+      │   └── 02_streaming_simulado           (Streaming simulado → Bronze)
       ├── 02_Limpeza/
       │   └── 03_limpeza_bronze               (Limpeza e qualidade na Bronze)
       ├── 03_Transformacao/                   (TPs futuros)
@@ -93,12 +93,12 @@ Buckets acessíveis:
 ## 4. Configurações Adicionais
 
 ### Instance Profile (IAM)
-O Instance Profile `vidaplus-databricks-instance-profile` foi associado ao workspace com as permissões:
+O Instance Profile `pb-brasilmart-databricks-instance-profile` foi associado ao workspace com as permissões:
 - `s3:GetObject`, `s3:PutObject`, `s3:ListBucket` nos 4 buckets
 - `kms:Decrypt`, `kms:GenerateDataKey` na KMS key do projeto
 - `glue:GetDatabase`, `glue:GetTable`, `glue:GetPartitions` para acessar o Glue Data Catalog
 
 ### Secret Scope
 Credenciais sensíveis armazenadas no Databricks Secret Scope:
-- `vidaplus/aws-access-key` — chave de acesso AWS (se não usar Instance Profile)
-- `vidaplus/aws-secret-key` — chave secreta AWS
+- `pb-brasilmart/aws-access-key` — chave de acesso AWS (se não usar Instance Profile)
+- `pb-brasilmart/aws-secret-key` — chave secreta AWS

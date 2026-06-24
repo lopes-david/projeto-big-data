@@ -5,22 +5,22 @@
 # Databases no Glue Data Catalog (um por camada)
 resource "aws_glue_catalog_database" "raw" {
   name        = "${var.project_name}_raw"
-  description = "Dados brutos originais (JSON, CSV, HL7) - VidaPlus Saúde"
+  description = "Dados brutos originais (JSON, CSV) - BrasilMart E-commerce"
 }
 
 resource "aws_glue_catalog_database" "bronze" {
   name        = "${var.project_name}_bronze"
-  description = "Dados convertidos para Parquet/Delta sem transformação - VidaPlus Saúde"
+  description = "Dados convertidos para Parquet/Delta sem transformação - BrasilMart E-commerce"
 }
 
 resource "aws_glue_catalog_database" "silver" {
   name        = "${var.project_name}_silver"
-  description = "Dados limpos, padronizados e deduplicados - VidaPlus Saúde"
+  description = "Dados limpos, padronizados e deduplicados - BrasilMart E-commerce"
 }
 
 resource "aws_glue_catalog_database" "gold" {
   name        = "${var.project_name}_gold"
-  description = "Tabelas analíticas, KPIs e visão 360° do paciente - VidaPlus Saúde"
+  description = "Tabelas analíticas, KPIs e visão 360° do cliente - BrasilMart E-commerce"
 }
 
 # IAM Role para Glue Jobs
@@ -89,13 +89,13 @@ resource "aws_iam_role_policy" "glue_s3_access" {
 }
 
 # Crawler para descobrir schemas automaticamente na camada Raw
-resource "aws_glue_crawler" "raw_consultas" {
+resource "aws_glue_crawler" "raw_orders" {
   database_name = aws_glue_catalog_database.raw.name
-  name          = "${var.project_name}-raw-consultas-crawler"
+  name          = "${var.project_name}-raw-orders-crawler"
   role          = aws_iam_role.glue_etl.arn
 
   s3_target {
-    path = "s3://${aws_s3_bucket.lakehouse["raw"].bucket}/consultas/"
+    path = "s3://${aws_s3_bucket.lakehouse["raw"].bucket}/orders/"
   }
 
   schema_change_policy {
@@ -116,7 +116,7 @@ resource "aws_glue_crawler" "raw_consultas" {
 # ============================================================
 
 resource "aws_glue_job" "batch_ingestion" {
-  name     = "${var.project_name}-batch-ingestion-consultas"
+  name     = "${var.project_name}-batch-ingestion-orders"
   role_arn = aws_iam_role.glue_etl.arn
 
   command {
@@ -131,10 +131,10 @@ resource "aws_glue_job" "batch_ingestion" {
     "--enable-metrics"             = "true"
     "--enable-continuous-cloudwatch-log" = "true"
     "--TempDir"                    = "s3://${aws_s3_bucket.lakehouse["raw"].bucket}/tmp/"
-    "--SOURCE_PATH"                = "s3://${aws_s3_bucket.lakehouse["raw"].bucket}/consultas/"
-    "--TARGET_PATH"                = "s3://${aws_s3_bucket.lakehouse["bronze"].bucket}/consultas/"
+    "--SOURCE_PATH"                = "s3://${aws_s3_bucket.lakehouse["raw"].bucket}/orders/"
+    "--TARGET_PATH"                = "s3://${aws_s3_bucket.lakehouse["bronze"].bucket}/orders/"
     "--DATABASE_NAME"              = aws_glue_catalog_database.bronze.name
-    "--TABLE_NAME"                 = "consultas"
+    "--TABLE_NAME"                 = "orders"
   }
 
   glue_version      = "4.0"
