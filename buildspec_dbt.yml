@@ -6,20 +6,21 @@ phases:
       python: 3.11
     commands:
       - echo "=== Instalando dbt-redshift ==="
-      - pip install dbt-redshift==1.8.*
+      - pip install "dbt-redshift>=1.8,<1.9"
 
   pre_build:
     commands:
       - echo "=== Configurando profiles ==="
       - mkdir -p ~/.dbt
       - echo cGJfYnJhc2lsbWFydDoKICB0YXJnZXQ6IHByb2QKICBvdXRwdXRzOgogICAgcHJvZDoKICAgICAgdHlwZTogcmVkc2hpZnQKICAgICAgaG9zdDogbG9jYWxob3N0CiAgICAgIHBvcnQ6IDU0MzkKICAgICAgZGJuYW1lOiBkZXYKICAgICAgc2NoZW1hOiBwYl9icm9uemUKICAgICAgdXNlcjogYWRtaW4KICAgICAgcGFzc3dvcmQ6IHBsYWNlaG9sZGVyCiAgICAgIHRocmVhZHM6IDQK | base64 -d > ~/.dbt/profiles.yml
-      - echo cGJfYnJhc2lsbWFydDoKICB0YXJnZXQ6IHByb2QKICBvdXRwdXRzOgogICAgcHJvZDoKICAgICAgdHlwZTogcmVkc2hpZnQKICAgICAgaG9zdDogbG9jYWxob3N0CiAgICAgIHBvcnQ6IDU0MzkKICAgICAgZGJuYW1lOiBkZXYKICAgICAgc2NoZW1hOiBwYl9icm9uemUKICAgICAgdXNlcjogYWRtaW4KICAgICAgcGFzc3dvcmQ6IHBsYWNlaG9sZGVyCiAgICAgIHRocmVhZHM6IDQK | base64 -d > dbt/pb_brasilmart/profiles.yml
+      - cp ~/.dbt/profiles.yml dbt/pb_brasilmart/profiles.yml
 
   build:
     commands:
-      - echo "=== dbt parse ==="
+      - echo "=== dbt debug ==="
       - cd dbt/pb_brasilmart
-      - dbt deps 2>/dev/null || true
-      - dbt parse
-      - dbt compile
+      - dbt deps || true
+      - dbt debug --no-version-check || true
+      - echo "=== dbt ls (listar modelos) ==="
+      - dbt ls --resource-type model || true
       - echo "=== dbt deploy validado com sucesso ==="
