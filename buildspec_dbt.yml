@@ -12,12 +12,11 @@ phases:
     commands:
       - echo "=== Configurando profiles ==="
       - mkdir -p ~/.dbt
-      - printf "pb_brasilmart:\n  target: prod\n  outputs:\n    prod:\n      type: redshift\n      host: localhost\n      port: 5439\n      dbname: dev\n      schema: pb_bronze\n      user: admin\n      password: placeholder\n      threads: 4\n" > ~/.dbt/profiles.yml
-      - cat ~/.dbt/profiles.yml
+      - python -c "open('/root/.dbt/profiles.yml','w').write('pb_brasilmart:\n  target: prod\n  outputs:\n    prod:\n      type: redshift\n      host: localhost\n      port: 5439\n      dbname: dev\n      schema: pb_bronze\n      user: admin\n      password: placeholder\n      threads: 4\n')"
 
   build:
     commands:
-      - echo "=== dbt parse (validacao do projeto) ==="
+      - echo "=== dbt parse ==="
       - cd dbt/pb_brasilmart
       - dbt deps 2>/dev/null || true
       - dbt parse
