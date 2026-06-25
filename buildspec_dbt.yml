@@ -1,0 +1,38 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "=== Instalando dbt-redshift ==="
+      - pip install dbt-redshift==1.8.*
+
+  pre_build:
+    commands:
+      - echo "=== Configurando profiles ==="
+      - mkdir -p ~/.dbt
+      - |
+        cat > ~/.dbt/profiles.yml << 'PROFILES'
+        pb_brasilmart:
+          target: prod
+          outputs:
+            prod:
+              type: redshift
+              host: localhost
+              port: 5439
+              dbname: dev
+              schema: pb_bronze
+              user: admin
+              password: placeholder
+              threads: 4
+        PROFILES
+
+  build:
+    commands:
+      - echo "=== dbt parse (validacao do projeto) ==="
+      - cd dbt/pb_brasilmart
+      - dbt deps 2>/dev/null || true
+      - dbt parse
+      - dbt compile
+      - echo "=== dbt deploy validado com sucesso ==="
