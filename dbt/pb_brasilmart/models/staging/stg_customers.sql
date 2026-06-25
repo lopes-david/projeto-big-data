@@ -1,14 +1,15 @@
 {{ config(materialized='view') }}
 
 WITH source AS (
-    SELECT * FROM {{ source('databricks_silver', 'customers') }}
+    SELECT * FROM {{ source('databricks_silver', 'dim_customers') }}
 )
 
 SELECT
-    customer_id,
     customer_unique_id,
-    customer_zip_code,
-    customer_city,
-    customer_state,
-    _transformado_em
+    zip_code_prefix,
+    city,
+    state,
+    latitude,
+    longitude,
+    order_count
 FROM source

@@ -1,20 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # TP2 — 1.4 Upsert (MERGE) e Time Travel
-# MAGIC
-# MAGIC **Objetivo:** Demonstrar operações de MERGE (insert + update) no Delta Lake
-# MAGIC e usar Time Travel para recuperar dados de versões anteriores.
-
-# COMMAND ----------
-
-from pyspark.sql import functions as F
-from delta.tables import DeltaTable
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC USE CATALOG pb_brasilmart;
-# MAGIC USE SCHEMA bronze;
+# MAGIC USE CATALOG olist_lakehouse;
+# MAGIC USE SCHEMA tp2_demo;
 
 # COMMAND ----------
 
@@ -23,221 +15,171 @@ from delta.tables import DeltaTable
 
 # COMMAND ----------
 
-df_sellers = spark.table("bronze.sellers")
-print(f"Total de sellers: {df_sellers.count()}")
-display(df_sellers.limit(5))
+# MAGIC %sql
+# MAGIC SELECT count(*) AS total_customers FROM tp2_demo.customers;
 
 # COMMAND ----------
 
-# Salva contagem original pra comparar depois
-contagem_original = df_sellers.count()
-print(f"Versão atual — {contagem_original} sellers")
-
-# Pega um seller existente pra demonstrar UPDATE
-seller_existente = df_sellers.select("seller_id", "seller_city", "seller_state").first()
-print(f"\nSeller existente: {seller_existente.seller_id}")
-print(f"  Cidade atual: {seller_existente.seller_city}")
-print(f"  Estado atual: {seller_existente.seller_state}")
+# MAGIC %sql
+# MAGIC -- Amostra de 5 clientes
+# MAGIC SELECT customer_id, customer_city, customer_state
+# MAGIC FROM tp2_demo.customers LIMIT 5;
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 2. Preparar Dados para o MERGE
+# MAGIC ## 2. Dados para o MERGE
 # MAGIC
-# MAGIC Simulamos uma atualização vinda do sistema fonte:
-# MAGIC - **2 sellers existentes** com dados atualizados (UPDATE)
-# MAGIC - **2 sellers novos** que não existiam (INSERT)
+# MAGIC Simulamos uma atualização do sistema fonte:
+# MAGIC - **2 clientes existentes** com cidade alterada (UPDATE)
+# MAGIC - **2 clientes novos** que não existiam (INSERT)
 
 # COMMAND ----------
 
-# Pega 2 sellers existentes
-sellers_existentes = df_sellers.limit(2).select("seller_id").collect()
-id1 = sellers_existentes[0].seller_id
-id2 = sellers_existentes[1].seller_id
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TEMP VIEW merge_source AS
+# MAGIC (SELECT customer_id, customer_unique_id, '00001' AS customer_zip_code_prefix,
+# MAGIC        'Curitiba' AS customer_city, 'PR' AS customer_state,
+# MAGIC        _ingested_at, _source_file, _batch_id, current_timestamp() AS _ingestao_ts
+# MAGIC FROM tp2_demo.customers WHERE customer_state = 'SP' LIMIT 1)
+# MAGIC UNION ALL
+# MAGIC (SELECT customer_id, customer_unique_id, '20000',
+# MAGIC        'Niterói', 'RJ',
+# MAGIC        _ingested_at, _source_file, _batch_id, current_timestamp()
+# MAGIC FROM tp2_demo.customers WHERE customer_state = 'RJ' LIMIT 1)
+# MAGIC UNION ALL
+# MAGIC SELECT 'NOVO_CLI_001', 'UNIQUE_001', '90000', 'Porto Alegre', 'RS',
+# MAGIC        NULL, NULL, NULL, current_timestamp()
+# MAGIC UNION ALL
+# MAGIC SELECT 'NOVO_CLI_002', 'UNIQUE_002', '40000', 'Salvador', 'BA',
+# MAGIC        NULL, NULL, NULL, current_timestamp();
 
-# Dados de merge: 2 updates + 2 inserts
-merge_data = [
-    # UPDATE — sellers existentes com cidade alterada
-    (id1, "00001000", "São Paulo", "SP", F.current_timestamp(), "merge_batch", "2026-06-18_merge"),
-    (id2, "20000000", "Rio de Janeiro", "RJ", F.current_timestamp(), "merge_batch", "2026-06-18_merge"),
-    # INSERT — sellers novos
-    ("NOVO_SELLER_001", "90000000", "Porto Alegre", "RS", F.current_timestamp(), "merge_batch", "2026-06-18_merge"),
-    ("NOVO_SELLER_002", "40000000", "Salvador", "BA", F.current_timestamp(), "merge_batch", "2026-06-18_merge"),
-]
+# COMMAND ----------
 
-columns = ["seller_id", "seller_zip_code_prefix", "seller_city", "seller_state",
-           "_ingestao_ts", "_fonte", "_versao_ingestao"]
-
-df_updates = spark.createDataFrame(merge_data, columns)
-print("Dados para MERGE:")
-display(df_updates)
+# MAGIC %sql
+# MAGIC SELECT * FROM merge_source;
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## 3. Executar o MERGE (Upsert)
 # MAGIC
-# MAGIC - Se `seller_id` já existe → **UPDATE** (atualiza cidade, estado, zip)
-# MAGIC - Se `seller_id` não existe → **INSERT** (cria novo registro)
-
-# COMMAND ----------
-
-dt_sellers = DeltaTable.forName(spark, "pb_brasilmart.bronze.sellers")
-
-(dt_sellers.alias("target")
- .merge(
-     df_updates.alias("source"),
-     "target.seller_id = source.seller_id"
- )
- .whenMatchedUpdate(set={
-     "seller_zip_code_prefix": "source.seller_zip_code_prefix",
-     "seller_city":            "source.seller_city",
-     "seller_state":           "source.seller_state",
-     "_ingestao_ts":           "source._ingestao_ts",
-     "_fonte":                 "source._fonte",
-     "_versao_ingestao":       "source._versao_ingestao",
- })
- .whenNotMatchedInsertAll()
- .execute()
-)
-
-print("✅ MERGE executado!")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## 4. Verificar Resultado do MERGE
-
-# COMMAND ----------
-
-df_after = spark.table("bronze.sellers")
-contagem_nova = df_after.count()
-
-print(f"Antes do MERGE:  {contagem_original} sellers")
-print(f"Depois do MERGE: {contagem_nova} sellers")
-print(f"Novos inseridos: {contagem_nova - contagem_original}")
-
-# COMMAND ----------
-
-# Verifica os sellers atualizados
-print("Sellers ATUALIZADOS (UPDATE):")
-display(df_after.where(F.col("seller_id").isin(id1, id2)))
-
-# COMMAND ----------
-
-# Verifica os sellers novos
-print("Sellers NOVOS (INSERT):")
-display(df_after.where(F.col("seller_id").startswith("NOVO_SELLER")))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## 5. Histórico de Versões (Delta Log)
+# MAGIC - `customer_id` já existe → **UPDATE**
+# MAGIC - `customer_id` não existe → **INSERT**
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC DESCRIBE HISTORY pb_brasilmart.bronze.sellers;
+# MAGIC MERGE INTO tp2_demo.customers AS target
+# MAGIC USING merge_source AS source
+# MAGIC ON target.customer_id = source.customer_id
+# MAGIC WHEN MATCHED THEN UPDATE SET
+# MAGIC   target.customer_city = source.customer_city,
+# MAGIC   target.customer_state = source.customer_state,
+# MAGIC   target.customer_zip_code_prefix = source.customer_zip_code_prefix,
+# MAGIC   target._ingestao_ts = source._ingestao_ts
+# MAGIC WHEN NOT MATCHED THEN INSERT *;
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 4. Verificar Resultado
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Contagem: deve ter +2 (os novos inseridos)
+# MAGIC SELECT count(*) AS total_apos_merge FROM tp2_demo.customers;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Clientes NOVOS inseridos
+# MAGIC SELECT * FROM tp2_demo.customers WHERE customer_id LIKE 'NOVO_CLI%';
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Clientes ATUALIZADOS (cidade mudou)
+# MAGIC SELECT * FROM tp2_demo.customers WHERE customer_city IN ('Curitiba', 'Niterói');
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 5. Histórico — Commits no `_delta_log`
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC DESCRIBE HISTORY tp2_demo.customers;
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## 6. Time Travel — Recuperar Dados Antigos
-# MAGIC
-# MAGIC O Delta Lake guarda todas as versões. Podemos acessar qualquer versão anterior
-# MAGIC usando `VERSION AS OF` ou `TIMESTAMP AS OF`.
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 6.1 Comparar versão anterior vs atual
-
-# COMMAND ----------
-
-# Versão anterior ao MERGE (versão 0 ou a penúltima)
-history = spark.sql("DESCRIBE HISTORY pb_brasilmart.bronze.sellers").collect()
-versao_antes_merge = history[1].version  # penúltima operação
-versao_merge = history[0].version        # última operação (MERGE)
-
-print(f"Versão antes do MERGE: {versao_antes_merge}")
-print(f"Versão do MERGE:       {versao_merge}")
-
-# COMMAND ----------
-
-# Dados ANTES do merge via Time Travel
-df_antes = spark.read.format("delta").option("versionAsOf", versao_antes_merge).table("pb_brasilmart.bronze.sellers")
-
-# Dados DEPOIS do merge (versão atual)
-df_depois = spark.table("bronze.sellers")
-
-print(f"Versão {versao_antes_merge} (antes): {df_antes.count()} sellers")
-print(f"Versão {versao_merge} (depois):  {df_depois.count()} sellers")
-
-# COMMAND ----------
-
-# O seller que foi ATUALIZADO — como era antes?
-print(f"Seller {id1} ANTES do merge:")
-display(df_antes.where(F.col("seller_id") == id1))
-
-print(f"\nSeller {id1} DEPOIS do merge:")
-display(df_depois.where(F.col("seller_id") == id1))
-
-# COMMAND ----------
-
-# Os sellers novos NÃO existiam na versão anterior
-print("Sellers NOVO_SELLER na versão anterior (deve ser vazio):")
-display(df_antes.where(F.col("seller_id").startswith("NOVO_SELLER")))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 6.2 Recuperar dados com SQL — VERSION AS OF
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- Consulta a versão anterior diretamente via SQL
-# MAGIC SELECT seller_id, seller_city, seller_state, _versao_ingestao
-# MAGIC FROM pb_brasilmart.bronze.sellers VERSION AS OF 0
-# MAGIC WHERE seller_id IN (SELECT seller_id FROM pb_brasilmart.bronze.sellers WHERE seller_id LIKE 'NOVO_SELLER%')
-# MAGIC    OR seller_city IN ('São Paulo', 'Rio de Janeiro');
+# MAGIC -- Versão ANTES do merge (versão 0)
+# MAGIC SELECT count(*) AS total_antes_merge FROM tp2_demo.customers VERSION AS OF 0;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Os clientes novos NÃO existiam na versão 0
+# MAGIC SELECT * FROM tp2_demo.customers VERSION AS OF 0 WHERE customer_id LIKE 'NOVO_CLI%';
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Comparação: cidade do cliente ANTES vs DEPOIS do merge
+# MAGIC SELECT
+# MAGIC   'ANTES (v0)' AS versao,
+# MAGIC   customer_id, customer_city, customer_state
+# MAGIC FROM tp2_demo.customers VERSION AS OF 0
+# MAGIC WHERE customer_city IN ('Curitiba', 'Niterói')
+# MAGIC UNION ALL
+# MAGIC SELECT
+# MAGIC   'DEPOIS (atual)' AS versao,
+# MAGIC   customer_id, customer_city, customer_state
+# MAGIC FROM tp2_demo.customers
+# MAGIC WHERE customer_city IN ('Curitiba', 'Niterói');
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 6.3 Restaurar versão anterior (RESTORE)
+# MAGIC ## 7. RESTORE — Desfazer o MERGE
 
 # COMMAND ----------
 
-# Conta antes de restaurar
-print(f"Antes do RESTORE: {spark.table('bronze.sellers').count()} sellers")
-
-# Restaura para a versão original
-spark.sql(f"RESTORE TABLE pb_brasilmart.bronze.sellers TO VERSION AS OF {versao_antes_merge}")
-
-print(f"Depois do RESTORE: {spark.table('bronze.sellers').count()} sellers")
-print("\n✅ Tabela restaurada — sellers novos removidos, atualizações revertidas!")
+# MAGIC %sql
+# MAGIC RESTORE TABLE tp2_demo.customers TO VERSION AS OF 0;
 
 # COMMAND ----------
 
-# Confirma: sellers novos sumiram
-display(spark.table("bronze.sellers").where(F.col("seller_id").startswith("NOVO_SELLER")))
+# MAGIC %sql
+# MAGIC SELECT count(*) AS total_apos_restore FROM tp2_demo.customers;
 
 # COMMAND ----------
 
-# Histórico final — mostra todas as operações incluindo RESTORE
-display(spark.sql("DESCRIBE HISTORY pb_brasilmart.bronze.sellers"))
+# MAGIC %sql
+# MAGIC -- Confirma: clientes novos sumiram
+# MAGIC SELECT * FROM tp2_demo.customers WHERE customer_id LIKE 'NOVO_CLI%';
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Histórico final: CREATE → MERGE → RESTORE
+# MAGIC DESCRIBE HISTORY tp2_demo.customers;
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Resumo
 # MAGIC
-# MAGIC | Operação | O que fez |
-# MAGIC |----------|-----------|
-# MAGIC | **MERGE** | 2 sellers atualizados (UPDATE) + 2 novos inseridos (INSERT) |
-# MAGIC | **Time Travel** | Acessou versão anterior e comparou dados antes/depois |
-# MAGIC | **RESTORE** | Reverteu a tabela ao estado original, desfazendo o MERGE |
-# MAGIC
-# MAGIC O Delta Lake registra **cada operação como um commit atômico** no `_delta_log`.
-# MAGIC Nenhum dado é perdido — todas as versões permanecem acessíveis para auditoria.
+# MAGIC | Operação | Resultado |
+# MAGIC |----------|----------|
+# MAGIC | **MERGE** | 2 clientes atualizados + 2 novos inseridos |
+# MAGIC | **Time Travel** | Versão 0 acessível mesmo após MERGE |
+# MAGIC | **RESTORE** | Tabela revertida ao estado original |

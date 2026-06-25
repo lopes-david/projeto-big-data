@@ -24,26 +24,14 @@ sources:
 
   - name: databricks_silver
     schema: raw_databricks
-    description: "Tabelas Silver transferidas do Databricks (DLT) para o Redshift via conector Spark-Redshift"
+    description: "Tabelas Silver transferidas do Databricks (DLT) para o Redshift via COPY S3"
     tables:
-      - name: orders
-        description: "Pedidos limpos com tempos decorridos (seg), delta entrega e status"
-      - name: customers
-        description: "Clientes com CEP formatado, cidade/estado padronizados"
-      - name: items
-        description: "Itens com valores monetários validados e total calculado"
-      - name: payments
-        description: "Pagamentos com tipo agrupado e valor validado"
-      - name: reviews
-        description: "Avaliações com sentimento classificado e tempo de resposta"
-      - name: products
-        description: "Produtos com categoria EN, peso kg, volume cm³ e porte"
-      - name: sellers
-        description: "Vendedores com CEP/cidade/estado padronizados"
-      - name: orders_enriched
-        description: "Pedidos enriquecidos com dados do cliente e resumo de pagamento"
-      - name: items_enriched
-        description: "Itens enriquecidos com dados do produto e do vendedor"
+      - name: dim_customers
+        description: "Clientes unicos com coordenadas e contagem de pedidos (Databricks Silver)"
+      - name: fact_orders
+        description: "Pedidos validados com metricas de tempo (Databricks Silver)"
+      - name: fact_payments
+        description: "Pagamentos validados por pedido (Databricks Silver)"
 
 models:
   - name: stg_orders

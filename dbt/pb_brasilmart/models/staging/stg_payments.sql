@@ -1,15 +1,13 @@
 {{ config(materialized='view') }}
 
 WITH source AS (
-    SELECT * FROM {{ source('databricks_silver', 'payments') }}
+    SELECT * FROM {{ source('databricks_silver', 'fact_payments') }}
 )
 
 SELECT
     order_id,
     payment_sequential,
-    payment_type,
+    payment_method,
     payment_installments,
-    payment_value,
-    payment_group,
-    _transformado_em
+    payment_value
 FROM source
