@@ -13,6 +13,7 @@ phases:
       - echo "=== Configurando profiles ==="
       - mkdir -p ~/.dbt
       - echo cGJfYnJhc2lsbWFydDoKICB0YXJnZXQ6IHByb2QKICBvdXRwdXRzOgogICAgcHJvZDoKICAgICAgdHlwZTogcmVkc2hpZnQKICAgICAgaG9zdDogbG9jYWxob3N0CiAgICAgIHBvcnQ6IDU0MzkKICAgICAgZGJuYW1lOiBkZXYKICAgICAgc2NoZW1hOiBwYl9icm9uemUKICAgICAgdXNlcjogYWRtaW4KICAgICAgcGFzc3dvcmQ6IHBsYWNlaG9sZGVyCiAgICAgIHRocmVhZHM6IDQK | base64 -d > ~/.dbt/profiles.yml
+      - echo cGJfYnJhc2lsbWFydDoKICB0YXJnZXQ6IHByb2QKICBvdXRwdXRzOgogICAgcHJvZDoKICAgICAgdHlwZTogcmVkc2hpZnQKICAgICAgaG9zdDogbG9jYWxob3N0CiAgICAgIHBvcnQ6IDU0MzkKICAgICAgZGJuYW1lOiBkZXYKICAgICAgc2NoZW1hOiBwYl9icm9uemUKICAgICAgdXNlcjogYWRtaW4KICAgICAgcGFzc3dvcmQ6IHBsYWNlaG9sZGVyCiAgICAgIHRocmVhZHM6IDQK | base64 -d > dbt/pb_brasilmart/profiles.yml
 
   build:
     commands:
