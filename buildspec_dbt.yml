@@ -12,21 +12,8 @@ phases:
     commands:
       - echo "=== Configurando profiles ==="
       - mkdir -p ~/.dbt
-      - |
-        cat > ~/.dbt/profiles.yml << 'PROFILES'
-        pb_brasilmart:
-          target: prod
-          outputs:
-            prod:
-              type: redshift
-              host: localhost
-              port: 5439
-              dbname: dev
-              schema: pb_bronze
-              user: admin
-              password: placeholder
-              threads: 4
-        PROFILES
+      - printf "pb_brasilmart:\n  target: prod\n  outputs:\n    prod:\n      type: redshift\n      host: localhost\n      port: 5439\n      dbname: dev\n      schema: pb_bronze\n      user: admin\n      password: placeholder\n      threads: 4\n" > ~/.dbt/profiles.yml
+      - cat ~/.dbt/profiles.yml
 
   build:
     commands:
